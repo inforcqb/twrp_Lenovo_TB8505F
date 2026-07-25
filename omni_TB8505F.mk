@@ -19,3 +19,30 @@ PRODUCT_MODEL := Lenovo TB-8505F
 PRODUCT_MANUFACTURER := LENOVO
 
 PRODUCT_SHIPPING_API_LEVEL := 28
+
+# Crypto / FDE packages for decryption
+PRODUCT_PACKAGES += \
+    libkeymaster4 \
+    libkeymaster4support \
+    libkeymaster_messages \
+    libkeymaster_portable \
+    libpuresoftkeymasterdevice \
+    libsoftgatekeeper \
+    android.hardware.keymaster@4.0 \
+    android.hardware.keymaster@3.0 \
+    android.hardware.gatekeeper@1.0 \
+    libkeystore-engine-wifi-hidl \
+    libkeystore-wifi-hidl \
+    libkmsetkey \
+    keystore \
+    gatekeeperd
+
+# MTK keymaster attestation
+PRODUCT_PACKAGES += \
+    vendor.mediatek.hardware.keymaster_attestation@1.0 \
+    vendor.mediatek.hardware.keymaster_attestation@1.1
+
+# Vold and related
+PRODUCT_PACKAGES += \
+    vold \
+    secdiscard

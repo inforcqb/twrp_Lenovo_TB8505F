@@ -1,0 +1,23 @@
+# Build artifacts
+extracted/
+extracted_vendor/
+extracted_system/
+extracted_boot/
+
+# Python scripts
+extract_ext4*.py
+search_vendor.py
+
+# Setup scripts (not needed after initial setup)
+setup-fde-blobs.sh
+FDE_DECRYPTION_FIX.md
+
+# Build output
+out/
+*.img
+*.zip
+*.tar
+
+# IDE
+.vscode/
+.idea/

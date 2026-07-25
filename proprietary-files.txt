@@ -1,0 +1,77 @@
+# Proprietary blobs for TWRP FDE Decryption on Lenovo TB-8505F (MT6761)
+# Extract from stock vendor and system partitions
+#
+# This device uses Pure Software Keymaster (no TEE/Trustonic dependency),
+# which makes decryption much simpler - no TEE firmware needed.
+
+# ====== Keymaster (Pure Software) ======
+# Core keymaster libraries
+vendor/lib64/libkeymaster4.so
+vendor/lib64/libkeymaster4support.so
+vendor/lib64/libkeymaster_messages.so
+vendor/lib64/libkeymaster_portable.so
+vendor/lib64/libpuresoftkeymasterdevice.so
+vendor/lib/libkeymaster4.so
+vendor/lib/libkeymaster4support.so
+vendor/lib/libkeymaster_messages.so
+vendor/lib/libkeymaster_portable.so
+vendor/lib/libpuresoftkeymasterdevice.so
+
+# Keymaster HIDL interfaces
+vendor/lib64/android.hardware.keymaster@4.0.so
+vendor/lib64/android.hardware.keymaster@3.0.so
+vendor/lib/android.hardware.keymaster@4.0.so
+vendor/lib/android.hardware.keymaster@3.0.so
+
+# MTK Keymaster attestation
+vendor/lib64/vendor.mediatek.hardware.keymaster_attestation@1.0.so
+vendor/lib64/vendor.mediatek.hardware.keymaster_attestation@1.1.so
+vendor/lib/vendor.mediatek.hardware.keymaster_attestation@1.0.so
+vendor/lib/vendor.mediatek.hardware.keymaster_attestation@1.1.so
+
+# ====== Gatekeeper (Software) ======
+vendor/lib64/libsoftgatekeeper.so
+vendor/lib/libsoftgatekeeper.so
+vendor/lib64/android.hardware.gatekeeper@1.0.so
+vendor/lib/android.hardware.gatekeeper@1.0.so
+vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+
+# ====== Keystore ======
+vendor/lib64/libkeystore-engine-wifi-hidl.so
+vendor/lib64/libkeystore-wifi-hidl.so
+vendor/lib/libkeystore-engine-wifi-hidl.so
+vendor/lib/libkeystore-wifi-hidl.so
+vendor/lib64/libkmsetkey.so
+vendor/lib/libkmsetkey.so
+
+# ====== Keymaster service ======
+vendor/bin/hw/android.hardware.keymaster@4.0-service
+vendor/etc/init/android.hardware.keymaster@4.0-service.rc
+
+# ====== Gatekeeper service ======
+vendor/etc/init/android.hardware.gatekeeper@1.0-service.rc
+
+# ====== VINTF manifests ======
+vendor/etc/vintf/manifest.xml
+vendor/etc/vintf/manifest/android.hardware.keymaster@4.0-service.xml
+vendor/etc/vintf/manifest/android.hardware.gatekeeper@1.0-service.xml
+
+# ====== Dependencies ======
+vendor/lib64/libhidlbase.so
+vendor/lib64/libhidltransport.so
+vendor/lib64/libhwbinder.so
+vendor/lib64/libbase.so
+vendor/lib64/libcrypto.so
+vendor/lib64/liblog.so
+vendor/lib64/libcutils.so
+vendor/lib64/libutils.so
+vendor/lib64/libhardware.so
+vendor/lib/libhidlbase.so
+vendor/lib/libhidltransport.so
+vendor/lib/libhwbinder.so
+vendor/lib/libbase.so
+vendor/lib/libcrypto.so
+vendor/lib/liblog.so
+vendor/lib/libcutils.so
+vendor/lib/libutils.so
+vendor/lib/libhardware.so

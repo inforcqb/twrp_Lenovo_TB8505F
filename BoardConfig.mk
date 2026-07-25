@@ -90,6 +90,35 @@ TW_DEFAULT_BRIGHTNESS := 255
 TW_INCLUDE_NTFS_3G := true
 TARGET_USES_MKE2FS := true
 
+# Crypto / FDE Decryption Support
+TW_INCLUDE_CRYPTO := true
+TW_INCLUDE_CRYPTO_FBE := true
+TW_CRYPTO_USE_SYSTEM_VOLD := true
+
+# Include keymaster/keystore/gatekeeper for decryption
+# Device uses Pure Software Keymaster (no TEE dependency)
+TARGET_RECOVERY_DEVICE_MODULES += \
+    libkeymaster4 \
+    libkeymaster4support \
+    libkeymaster_messages \
+    libkeymaster_portable \
+    libpuresoftkeymasterdevice \
+    libsoftgatekeeper \
+    android.hardware.keymaster@4.0 \
+    android.hardware.keymaster@3.0 \
+    android.hardware.gatekeeper@1.0 \
+    libkeystore-engine-wifi-hidl \
+    libkeystore-wifi-hidl \
+    libkmsetkey
+
+# Include vendor keymaster attestation for MTK
+TARGET_RECOVERY_DEVICE_MODULES += \
+    vendor.mediatek.hardware.keymaster_attestation@1.0 \
+    vendor.mediatek.hardware.keymaster_attestation@1.1
+
+# Required shared libs for crypto
+TW_LOAD_VENDOR_MODULES := "keymaster_messages keymaster4 keymaster4support keymaster_portable puresoftkeymasterdevice softgatekeeper kmsetkey"
+
 # Debug
 TWRP_INCLUDE_LOGCAT := true
 TARGET_USES_LOGD := true

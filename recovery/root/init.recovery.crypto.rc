@@ -1,0 +1,118 @@
+# init.recovery.crypto.rc
+# TWRP FDE Decryption: BeanPod Keymaster + Microtrust TEE initialization chain
+# Device: Lenovo TB-8505F (MT6761)
+#
+# Service dependency chain:
+#   teei_daemon -> bp_kmsetkey_ca -> keymaster@4.0 -> gatekeeper@1.0 -> cryptfs
+
+on early-init
+    # Create vendor directory structure for blobs
+    mkdir /vendor 0755 root root
+    mkdir /vendor/bin 0755 root root
+    mkdir /vendor/bin/hw 0755 root root
+    mkdir /vendor/lib64 0755 root root
+    mkdir /vendor/lib64/hw 0755 root root
+    mkdir /vendor/lib 0755 root root
+    mkdir /vendor/lib/hw 0755 root root
+    mkdir /vendor/etc 0755 root root
+    mkdir /vendor/etc/init 0755 root root
+    mkdir /vendor/thh 0755 root root
+    mkdir /vendor/thh/ta 0755 root root
+
+    # Set library path for vendor blobs
+    export LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/vendor/lib:/vendor/lib/hw:/system/lib64:/system/lib
+
+    # Create TEE device nodes if they don't exist
+    # (usually created by kernel, but ensure permissions)
+    symlink /vendor/bin/teei_daemon /vendor/bin/hw/teei_daemon
+    symlink /vendor/bin/bp_kmsetkey_ca /vendor/bin/hw/bp_kmsetkey_ca
+
+on fs
+    # Set up TEE device permissions
+    chmod 0660 /dev/teei_client
+    chown system system /dev/teei_client
+    chmod 0660 /dev/teei_config
+    chown system system /dev/teei_config
+    chmod 0666 /dev/tee0
+    chown system drmrpc /dev/tee0
+    chmod 0660 /dev/tz_vfs
+    chown system system /dev/tz_vfs
+    chmod 0660 /dev/ut_keymaster
+    chown system drmrpc /dev/ut_keymaster
+    chmod 0660 /dev/rpmb0
+    chown system system /dev/rpmb0
+    chmod 0660 /dev/emmcrpmb0
+    chown system system /dev/emmcrpmb0
+
+    # Start TEE daemon (Microtrust)
+    start teei_daemon
+
+    # Create TEE directories on data
+    mkdir /data/vendor 0755 root root
+    mkdir /data/vendor/thh 0755 system system
+    mkdir /data/vendor/thh/tee_00 0755 system system
+    mkdir /data/vendor/thh/tee_01 0755 system system
+    mkdir /data/vendor/thh/tee 0755 system system
+    mkdir /data/vendor/thh/tee/tas 0755 system system
+    mkdir /data/vendor/key_provisioning 0771 system system
+
+on boot
+    # Start BeanPod KeyMaster Set Key (after TEE is ready)
+    start beanpod_check_keybox_service
+
+    # Start keymaster service
+    start vendor.keymaster-4-0-beanpod
+
+    # Start gatekeeper service
+    start vendor.gatekeeper-1-0
+
+# ── TEE Daemon (Microtrust) ──
+service teei_daemon /vendor/bin/teei_daemon \
+    -r 020b0000000000000000000000000000 \
+    -r 020f0000000000000000000000000000 \
+    -r 06090000000000000000000000000000 \
+    -r 05120000000000000000000000000000 \
+    -r 40188311faf343488db888ad39496f9a \
+    -r 07060000000000000000000000007169 \
+    -r 9073f03a9618383bb1856eb3f990babd \
+    -r 08050000000000000000000000003419 \
+    -r 5020170115e016302017012521300000 \
+    -r 0f5eed3c3b5a47afacca69a84bf0efad \
+    -r 07407000000000000000000000000000 \
+    -r 05160000000000000000000000000000 \
+    -r 91dba524a6e24909acc48abd7163121a \
+    -t 08030000000000000000000000000000 \
+    -t 85f630e0f0964c5fa2cc268ce04e3da3 \
+    -t 98fb95bcb4bf42d26473eae48690d7ea \
+    -t 7b66512021214487ba710a51d7ea78fe \
+    -t 09010000000000000000000000000000
+    class core
+    user system
+    group system
+    disabled
+    seclabel u:r:recovery:s0
+
+# ── BeanPod KeyMaster Set Key Client App ──
+service beanpod_check_keybox_service /vendor/bin/hw/bp_kmsetkey_ca -c
+    class late_start
+    user system
+    group system
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+# ── Keymaster 4.0 (BeanPod) ──
+service vendor.keymaster-4-0-beanpod /vendor/bin/hw/android.hardware.keymaster@4.0-service.beanpod
+    class hal
+    user system
+    group system drmrpc
+    disabled
+    seclabel u:r:recovery:s0
+
+# ── Gatekeeper 1.0 ──
+service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    class hal
+    user system
+    group system
+    disabled
+    seclabel u:r:recovery:s0
