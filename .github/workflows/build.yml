@@ -168,6 +168,23 @@ PYEOF
           HEADEREOF
           echo "Created tw_atomic.hpp for twrp-10.0-deprecated compatibility"
 
+      - name: Fix ziparchive headers (Add missing include path for twrp-10.0-deprecated)
+        run: |
+          cd ~/twrp
+          # twrpApex.hpp (included via partitions.hpp when TW_CRYPTO_USE_SYSTEM_VOLD is set)
+          # requires <ziparchive/zip_archive.h> but twrp-10.0-deprecated doesn't add
+          # the libziparchive include path to libvolddecrypt. Copy headers into
+          # system/core/include which is already in the standard include path.
+          if [ -d system/core/libziparchive/include/ziparchive ]; then
+            mkdir -p system/core/include/ziparchive
+            cp system/core/libziparchive/include/ziparchive/*.h system/core/include/ziparchive/
+            echo "Copied ziparchive headers to system/core/include/ziparchive/"
+            ls -la system/core/include/ziparchive/
+          else
+            echo "ERROR: ziparchive headers not found at expected path"
+            exit 1
+          fi
+
       - name: Build TWRP Recovery
         timeout-minutes: 120
         run: |
