@@ -92,19 +92,10 @@ jobs:
             rm -rf bootable/recovery/prebuilt
             echo "Removed bootable/recovery/prebuilt to resolve vdc_pie conflict"
           fi
-          # Also remove vdc_pie cc_binary module from bootable/recovery/Android.bp
-          # to avoid "MODULE.TARGET.RECOVERY_EXECUTABLES.vdc_pie already defined" error
+          # Also remove vdc_pie module from bootable/recovery/Android.bp
           if [ -f bootable/recovery/Android.bp ]; then
-            python3 << 'PYEOF'
-import re
-with open('bootable/recovery/Android.bp', 'r') as f:
-    content = f.read()
-result = re.sub(r'cc_binary\s*\{[^}]*name:\s*"vdc_pie"[^}]*\}', '', content, flags=re.DOTALL)
-with open('bootable/recovery/Android.bp', 'w') as f:
-    f.write(result)
-print('Removed vdc_pie from bootable/recovery/Android.bp')
-PYEOF
-            echo "Stripped vdc_pie module from bootable/recovery/Android.bp"
+            perl -i -0777 -pe 's/cc_binary\s*\{[^}]*name:\s*"vdc_pie"[^}]*\}//gs' bootable/recovery/Android.bp
+            echo "Stripped vdc_pie from bootable/recovery/Android.bp"
           fi
 
       - name: Build TWRP Recovery
