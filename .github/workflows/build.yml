@@ -158,22 +158,35 @@ jobs:
           HEADEREOF
           echo "Created tw_atomic.hpp for twrp-10.0-deprecated compatibility"
 
-      - name: Fix ziparchive headers (Add missing include path for twrp-10.0-deprecated)
+      - name: Fix missing system headers (Add include paths for twrp-10.0-deprecated)
         run: |
           cd ~/twrp
           # twrpApex.hpp (included via partitions.hpp when TW_CRYPTO_USE_SYSTEM_VOLD is set)
-          # requires <ziparchive/zip_archive.h> but twrp-10.0-deprecated doesn't add
-          # the libziparchive include path to libvolddecrypt. Copy headers into
-          # system/core/include which is already in the standard include path.
+          # requires <ziparchive/zip_archive.h> and transitive <android-base/*.h> but
+          # twrp-10.0-deprecated doesn't add these include paths to libvolddecrypt.
+          # Copy headers into system/core/include (already in standard include path).
+          #
+          # 1) libziparchive headers
           if [ -d system/core/libziparchive/include/ziparchive ]; then
             mkdir -p system/core/include/ziparchive
             cp system/core/libziparchive/include/ziparchive/*.h system/core/include/ziparchive/
-            echo "Copied ziparchive headers to system/core/include/ziparchive/"
-            ls -la system/core/include/ziparchive/
+            echo "Copied ziparchive headers"
           else
-            echo "ERROR: ziparchive headers not found at expected path"
+            echo "ERROR: ziparchive headers not found"
             exit 1
           fi
+          # 2) libbase headers (transitive dep of zip_archive.h: android-base/off64_t.h etc.)
+          if [ -d system/core/base/include/android-base ]; then
+            mkdir -p system/core/include/android-base
+            cp system/core/base/include/android-base/*.h system/core/include/android-base/
+            echo "Copied android-base headers"
+          else
+            echo "ERROR: android-base headers not found"
+            exit 1
+          fi
+          echo "Header fixup complete"
+          ls -la system/core/include/ziparchive/
+          ls -la system/core/include/android-base/
 
       - name: Build TWRP Recovery
         timeout-minutes: 120
