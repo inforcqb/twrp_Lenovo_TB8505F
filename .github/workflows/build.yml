@@ -188,6 +188,16 @@ jobs:
           ls -la system/core/include/ziparchive/
           ls -la system/core/include/android-base/
 
+      - name: Fix LOGINFO macro redefinition (undef before vold_decrypt.cpp redefine)
+        run: |
+          cd ~/twrp
+          # vold_decrypt.cpp and twcommon.h both define LOGINFO.
+          # When twrpApex.hpp pulls in additional system headers via ziparchive,
+          # this previously-hidden conflict becomes visible as -Werror.
+          # Fix: add #undef before the LOGINFO redefinition in vold_decrypt.cpp.
+          sed -i '/^#define LOGINFO/i #undef LOGINFO' bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+          echo "Added #undef LOGINFO before redefinition in vold_decrypt.cpp"
+
       - name: Build TWRP Recovery
         timeout-minutes: 120
         run: |
