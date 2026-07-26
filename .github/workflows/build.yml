@@ -83,15 +83,20 @@ jobs:
       - name: Remove vdc_pie Prebuilt (Fix TW_CRYPTO_USE_SYSTEM_VOLD Conflict)
         run: |
           cd ~/twrp
-          echo "=== Fixing vdc_pie prebuilt conflict ==="
-          rm -f bootable/recovery/prebuilt/vdc_pie 2>/dev/null || true
-          for mkfile in bootable/recovery/prebuilt/Android.mk bootable/recovery/Android.bp; do
-            if [ -f "$mkfile" ]; then
-              sed -i '/[Vv][Dd][Cc]_[Pp][Ii][Ee]/s/^/#/' "$mkfile"
-              echo "Fixed $mkfile"
-            fi
-          done
-          echo "=== vdc_pie cleanup complete ==="
+          # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
+          # which conflicts with source-built vdc when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
+          # Step 1: Disable vdc_pie in prebuilt/Android.mk by renaming the module.
+          # Using module rename (not line commenting) preserves the module structure
+          # so LOCAL_SRC_FILES is still valid (avoids "No source files" error).
+          if [ -f bootable/recovery/prebuilt/Android.mk ]; then
+            sed -i 's/LOCAL_MODULE := vdc_pie/LOCAL_MODULE := vdc_pie_disabled/g' bootable/recovery/prebuilt/Android.mk
+            echo "Disabled vdc_pie in prebuilt/Android.mk via module rename"
+          fi
+          # Step 2: Strip vdc_pie cc_binary from bootable/recovery/Android.bp (Soong-based)
+          if [ -f bootable/recovery/Android.bp ]; then
+            perl -i -0777 -pe 's/cc_binary\s*\{[^}]*name:\s*"vdc_pie"[^}]*\}//gs' bootable/recovery/Android.bp
+            echo "Stripped vdc_pie from bootable/recovery/Android.bp"
+          fi
 
       - name: Add missing tw_atomic.hpp (Fix twrp-10.0-deprecated compatibility)
         run: |
