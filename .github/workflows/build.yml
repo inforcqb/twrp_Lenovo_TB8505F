@@ -85,25 +85,11 @@ jobs:
           cd ~/twrp
           # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
           # which conflicts with source-built vdc when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Step 1: Strip vdc_pie module from prebuilt/Android.mk (Make-based)
+          # Step 1: Disable vdc_pie in prebuilt/Android.mk by renaming the module
           # We preserve the prebuilt directory to keep bootable/recovery/Android.mk happy
-          mk_awk='
-            /include.*CLEAR_VARS/ { block=$0; in_block=1; next }
-            in_block {
-              block=block "\n" $0
-              if (/include.*BUILD_PREBUILT/) {
-                if (block !~ /vdc_pie/) { printf "%s\n", block }
-                in_block=0; block=""; next
-              }
-              next
-            }
-            !in_block
-          '
           if [ -f bootable/recovery/prebuilt/Android.mk ]; then
-            rm -f bootable/recovery/prebuilt/vdc_pie 2>/dev/null || true
-            awk "$mk_awk" bootable/recovery/prebuilt/Android.mk > bootable/recovery/prebuilt/Android.mk.tmp
-            mv bootable/recovery/prebuilt/Android.mk.tmp bootable/recovery/prebuilt/Android.mk
-            echo "Stripped vdc_pie from prebuilt/Android.mk"
+            sed -i 's/LOCAL_MODULE := vdc_pie/LOCAL_MODULE := vdc_pie_disabled/g' bootable/recovery/prebuilt/Android.mk
+            echo "Disabled vdc_pie in prebuilt/Android.mk via module rename"
           fi
           # Step 2: Strip vdc_pie cc_binary from bootable/recovery/Android.bp (Soong-based)
           if [ -f bootable/recovery/Android.bp ]; then
