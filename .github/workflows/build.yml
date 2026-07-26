@@ -79,18 +79,16 @@ jobs:
           df -h /
           du -sh ~/twrp
 
-      - name: Fix vdc_pie Prebuilt Conflict
+      - name: Remove vdc_pie Prebuilt (Fix TW_CRYPTO_USE_SYSTEM_VOLD Conflict)
         run: |
           cd ~/twrp
-          # Remove prebuilt vdc_pie to avoid conflict with TW_CRYPTO_USE_SYSTEM_VOLD
-          # The vdc binary will be built from source via bootable/recovery/vold
-          if [ -f bootable/recovery/prebuilt/vdc_pie ]; then
-            rm -f bootable/recovery/prebuilt/vdc_pie
-            echo "Removed bootable/recovery/prebuilt/vdc_pie"
-          fi
-          if [ -f bootable/recovery/prebuilt/Android.mk ]; then
-            sed -i '/vdc_pie/d' bootable/recovery/prebuilt/Android.mk || true
-            echo "Cleaned vdc_pie from prebuilt/Android.mk"
+          # twrp-10.0-deprecated manifest includes a prebuilt vdc_pie
+          # which conflicts with source-built vdc from bootable/recovery/vold
+          # when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
+          # Remove the entire prebuilt directory since vdc_pie is the only content.
+          if [ -d bootable/recovery/prebuilt ]; then
+            rm -rf bootable/recovery/prebuilt
+            echo "Removed bootable/recovery/prebuilt to resolve vdc_pie conflict"
           fi
 
       - name: Build TWRP Recovery
