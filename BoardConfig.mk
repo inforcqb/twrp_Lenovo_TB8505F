@@ -1,4 +1,3 @@
-#
 # Copyright (C) 2021 The Android Open Source Project
 # Copyright (C) 2021 SebaUbuntu's TWRP device tree generator
 #
@@ -117,7 +116,15 @@ TARGET_RECOVERY_DEVICE_MODULES += \
     android.hardware.gatekeeper@1.0 \
     libkeystore-engine-wifi-hidl \
     libkeystore-wifi-hidl \
-    libkmsetkey
+    libkmsetkey \
+    libziparchive \
+    libbase \
+    liblog \
+    libcutils \
+    libutils \
+    libselinux \
+    libcrypto \
+    libz
 
 # Include vendor keymaster attestation for MTK
 TARGET_RECOVERY_DEVICE_MODULES += \
