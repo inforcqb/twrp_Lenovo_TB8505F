@@ -50,15 +50,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-twrp-TB8505F-${{ hashFiles('.github/workflows/build.yml') }}
+          key: ccache-twrp-TB8505F-v2-${{ hashFiles('.github/workflows/build.yml') }}
           restore-keys: |
-            ccache-twrp-TB8505F-
+            ccache-twrp-TB8505F-v2-
 
       - name: Initialize TWRP Source
         run: |
           mkdir -p ~/twrp
           cd ~/twrp
-          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-10.0-deprecated
+          # Use twrp-10.0 (NOT deprecated) to avoid vdc_pie prebuilt conflict
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-10.0
 
       - name: Setup Device Tree
         run: |
@@ -74,42 +75,11 @@ jobs:
         timeout-minutes: 60
         run: |
           cd ~/twrp
-          repo sync -c --no-tags --no-clone-bundle -j$(nproc) --force-sync --fail-fast || repo sync -c --no-tags --no-clone-bundle -j4 --force-sync
+          repo sync -c --no-tags --no-clone-bundle -j$(nproc) --force-sync --fail-fast || \
+            repo sync -c --no-tags --no-clone-bundle -j4 --force-sync
           echo "=== Disk usage ==="
           df -h /
           du -sh ~/twrp
-
-      - name: Fix vdc_pie Prebuilt Conflict
-        run: |
-          cd ~/twrp
-          # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
-          # which conflicts with source-built vdc from bootable/recovery/vold
-          # when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Remove only the binary; keep directory + valid Android.mk intact.
-          PREBUILT_DIR="bootable/recovery/prebuilt"
-          if [ -f "$PREBUILT_DIR/vdc_pie" ]; then
-            rm -f "$PREBUILT_DIR/vdc_pie"
-            echo "Removed $PREBUILT_DIR/vdc_pie"
-          fi
-          if [ -f "$PREBUILT_DIR/Android.mk" ]; then
-            # Remove vdc_pie module blocks from Android.mk using awk
-            # Reads module blocks (CLEAR_VARS ... BUILD_PREBUILT),
-            # prints only blocks that do NOT contain "vdc_pie"
-            awk '
-              /include.*CLEAR_VARS/ { block=$0; in_block=1; next }
-              in_block {
-                block=block "\n" $0
-                if (/include.*BUILD_PREBUILT/) {
-                  if (block !~ /vdc_pie/) { printf "%s\n", block }
-                  in_block=0; block=""; next
-                }
-                next
-              }
-              !in_block
-            ' "$PREBUILT_DIR/Android.mk" > "$PREBUILT_DIR/Android.mk.tmp"
-            mv "$PREBUILT_DIR/Android.mk.tmp" "$PREBUILT_DIR/Android.mk"
-            echo "Cleaned vdc_pie entries from $PREBUILT_DIR/Android.mk"
-          fi
 
       - name: Build TWRP Recovery
         timeout-minutes: 120
@@ -138,6 +108,7 @@ jobs:
           echo "Device: Lenovo TB-8505F (MT6761)" > ~/output/build-info.txt
           echo "FDE: aes-cbc-essiv:sha256 + PureSW keymaster" >> ~/output/build-info.txt
           echo "Crypto: TW_CRYPTO_USE_SYSTEM_VOLD enabled" >> ~/output/build-info.txt
+          echo "Manifest: twrp-10.0" >> ~/output/build-info.txt
           ls -lh ~/output/
 
       - name: Upload TWRP Recovery
