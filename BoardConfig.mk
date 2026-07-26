@@ -99,7 +99,7 @@ TW_CRYPTO_USE_SYSTEM_VOLD := true
 
 # Default encryption (no user password) auto-decrypt
 # Android 10 FDE: when no lock screen set, key wrapped with "default_password"
-TW_CRYPTO_DEFAULT_PASSWORD :*** "default_password"
+TW_CRYPTO_DEFAULT_PASSWORD := "default_password"
 TW_CRYPTO_SKIP_PASSWORD_PROMPT := true
 TW_CRYPTO_USE_ROTARY_DEFAULT := true
 

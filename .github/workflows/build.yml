@@ -92,6 +92,7 @@ jobs:
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch omni_TB8505F-eng
+          set -o pipefail
           mka recoveryimage -j$(nproc) 2>&1 | tee build.log
           ccache -s
 
