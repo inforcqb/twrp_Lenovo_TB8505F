@@ -58,7 +58,6 @@ jobs:
         run: |
           mkdir -p ~/twrp
           cd ~/twrp
-          # Use twrp-10.0-deprecated (only twrp-10.0 branch available)
           repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-10.0-deprecated
 
       - name: Setup Device Tree
@@ -84,28 +83,29 @@ jobs:
       - name: Remove vdc_pie Prebuilt (Fix TW_CRYPTO_USE_SYSTEM_VOLD Conflict)
         run: |
           cd ~/twrp
-          # twrp-10.0-deprecated manifest includes a prebuilt vdc_pie
-          # which conflicts with source-built vdc from bootable/recovery/vold
-          # when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Strip vdc_pie entries from prebuilt/Android.mk
-          if [ -f bootable/recovery/prebuilt/Android.mk ]; then
-            awk '
-              /^include \$\(CLEAR_VARS\)/ { block=$0; in_block=1; next }
-              in_block {
-                block=block "\n" $0
-                if (/^include/) {
-                  if (block !~ /vdc_pie/) { print block }
-                  in_block=0; block=""
-                  next
-                }
-                next
+          # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
+          # which conflicts with source-built vdc when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
+          # Step 1: Strip vdc_pie module from prebuilt/Android.mk (Make-based)
+          # We preserve the prebuilt directory to keep bootable/recovery/Android.mk happy
+          mk_awk='
+            /include.*CLEAR_VARS/ { block=$0; in_block=1; next }
+            in_block {
+              block=block "\n" $0
+              if (/include.*BUILD_PREBUILT/) {
+                if (block !~ /vdc_pie/) { printf "%s\n", block }
+                in_block=0; block=""; next
               }
-              { print }
-            ' bootable/recovery/prebuilt/Android.mk > bootable/recovery/prebuilt/Android.mk.tmp
+              next
+            }
+            !in_block
+          '
+          if [ -f bootable/recovery/prebuilt/Android.mk ]; then
+            rm -f bootable/recovery/prebuilt/vdc_pie 2>/dev/null || true
+            awk "$mk_awk" bootable/recovery/prebuilt/Android.mk > bootable/recovery/prebuilt/Android.mk.tmp
             mv bootable/recovery/prebuilt/Android.mk.tmp bootable/recovery/prebuilt/Android.mk
-            echo "Stripped vdc_pie from bootable/recovery/prebuilt/Android.mk"
+            echo "Stripped vdc_pie from prebuilt/Android.mk"
           fi
-          # Strip vdc_pie cc_binary from bootable/recovery/Android.bp
+          # Step 2: Strip vdc_pie cc_binary from bootable/recovery/Android.bp (Soong-based)
           if [ -f bootable/recovery/Android.bp ]; then
             perl -i -0777 -pe 's/cc_binary\s*\{[^}]*name:\s*"vdc_pie"[^}]*\}//gs' bootable/recovery/Android.bp
             echo "Stripped vdc_pie from bootable/recovery/Android.bp"
