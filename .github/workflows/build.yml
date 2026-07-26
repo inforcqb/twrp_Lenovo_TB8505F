@@ -83,26 +83,36 @@ jobs:
       - name: Remove vdc_pie Prebuilt (Fix TW_CRYPTO_USE_SYSTEM_VOLD Conflict)
         run: |
           cd ~/twrp
-          # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
-          # which conflicts with source-built vdc when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Step 1: Disable vdc_pie in prebuilt/Android.mk by renaming the module
-          # We preserve the prebuilt directory to keep bootable/recovery/Android.mk happy
-          if [ -f bootable/recovery/prebuilt/Android.mk ]; then
-            sed -i 's/LOCAL_MODULE := vdc_pie/LOCAL_MODULE := vdc_pie_disabled/g' bootable/recovery/prebuilt/Android.mk
-            echo "Disabled vdc_pie in prebuilt/Android.mk via module rename"
-          fi
-          # Step 2: Strip vdc_pie cc_binary from bootable/recovery/Android.bp (Soong-based)
-          if [ -f bootable/recovery/Android.bp ]; then
-            perl -i -0777 -pe 's/cc_binary\s*\{[^}]*name:\s*"vdc_pie"[^}]*\}//gs' bootable/recovery/Android.bp
-            echo "Stripped vdc_pie from bootable/recovery/Android.bp"
-          fi
+          echo "=== Fixing vdc_pie prebuilt conflict ==="
+          # Remove the binary
+          rm -f bootable/recovery/prebuilt/vdc_pie 2>/dev/null || true
+          # Use Python to safely comment out vdc_pie sections in both files
+          for mkfile in bootable/recovery/prebuilt/Android.mk bootable/recovery/Android.bp; do
+            if [ -f "$mkfile" ]; then
+              python3 -c "
+import re, sys
+with open(sys.argv[1]) as f: content = f.read()
+# Comment out any line containing vdc_pie
+lines = content.split('\n')
+result = []
+for line in lines:
+    if 'vdc_pie' in line.lower():
+        result.append('#' + line)
+    else:
+        result.append(line)
+with open(sys.argv[1], 'w') as f: f.write('\n'.join(result))
+print(f'Fixed {sys.argv[1]}')
+" "$mkfile"
+            fi
+          done
+          echo "=== vdc_pie cleanup complete ==="
 
       - name: Add missing tw_atomic.hpp (Fix twrp-10.0-deprecated compatibility)
         run: |
           cd ~/twrp/bootable/recovery
           # twrp-10.0-deprecated manifest is missing tw_atomic.hpp
           # which is required by partitions.hpp when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Create the minimal header inline.
+          # Create the minimal header with inline implementations.
           cat > tw_atomic.hpp << 'HEADEREOF'
           /*
            * Copyright (C) 2015 The Team Win Recovery Project
@@ -128,10 +138,24 @@ jobs:
           class TWAtomicInt
           {
           public:
-              TWAtomicInt(int initial_value = 0);
-              ~TWAtomicInt();
-              void set_value(int new_value);
-              int get_value();
+              TWAtomicInt(int initial_value = 0) : value(initial_value), use_mutex(false) {
+                  pthread_mutex_init(&mutex_lock, NULL);
+              }
+              ~TWAtomicInt() {
+                  pthread_mutex_destroy(&mutex_lock);
+              }
+              void set_value(int new_value) {
+                  if (use_mutex) pthread_mutex_lock(&mutex_lock);
+                  value = new_value;
+                  if (use_mutex) pthread_mutex_unlock(&mutex_lock);
+              }
+              int get_value() {
+                  int ret;
+                  if (use_mutex) pthread_mutex_lock(&mutex_lock);
+                  ret = value;
+                  if (use_mutex) pthread_mutex_unlock(&mutex_lock);
+                  return ret;
+              }
 
           private:
               int value;
