@@ -79,16 +79,36 @@ jobs:
           df -h /
           du -sh ~/twrp
 
-      - name: Remove vdc_pie Prebuilt (Fix TW_CRYPTO_USE_SYSTEM_VOLD Conflict)
+      - name: Fix vdc_pie Prebuilt Conflict
         run: |
           cd ~/twrp
-          # twrp-10.0-deprecated manifest includes a prebuilt vdc_pie
+          # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
           # which conflicts with source-built vdc from bootable/recovery/vold
           # when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Remove the entire prebuilt directory since vdc_pie is the only content.
-          if [ -d bootable/recovery/prebuilt ]; then
-            rm -rf bootable/recovery/prebuilt
-            echo "Removed bootable/recovery/prebuilt to resolve vdc_pie conflict"
+          # Remove only the binary; keep directory + valid Android.mk intact.
+          PREBUILT_DIR="bootable/recovery/prebuilt"
+          if [ -f "$PREBUILT_DIR/vdc_pie" ]; then
+            rm -f "$PREBUILT_DIR/vdc_pie"
+            echo "Removed $PREBUILT_DIR/vdc_pie"
+          fi
+          if [ -f "$PREBUILT_DIR/Android.mk" ]; then
+            # Remove vdc_pie module blocks from Android.mk using awk
+            # Reads module blocks (CLEAR_VARS ... BUILD_PREBUILT),
+            # prints only blocks that do NOT contain "vdc_pie"
+            awk '
+              /include.*CLEAR_VARS/ { block=$0; in_block=1; next }
+              in_block {
+                block=block "\n" $0
+                if (/include.*BUILD_PREBUILT/) {
+                  if (block !~ /vdc_pie/) { printf "%s\n", block }
+                  in_block=0; block=""; next
+                }
+                next
+              }
+              !in_block
+            ' "$PREBUILT_DIR/Android.mk" > "$PREBUILT_DIR/Android.mk.tmp"
+            mv "$PREBUILT_DIR/Android.mk.tmp" "$PREBUILT_DIR/Android.mk"
+            echo "Cleaned vdc_pie entries from $PREBUILT_DIR/Android.mk"
           fi
 
       - name: Build TWRP Recovery
