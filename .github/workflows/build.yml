@@ -87,12 +87,25 @@ jobs:
           # twrp-10.0-deprecated manifest includes a prebuilt vdc_pie
           # which conflicts with source-built vdc from bootable/recovery/vold
           # when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Remove the entire prebuilt directory since vdc_pie is the only content.
-          if [ -d bootable/recovery/prebuilt ]; then
-            rm -rf bootable/recovery/prebuilt
-            echo "Removed bootable/recovery/prebuilt to resolve vdc_pie conflict"
+          # Strip vdc_pie entries from prebuilt/Android.mk
+          if [ -f bootable/recovery/prebuilt/Android.mk ]; then
+            awk '
+              /^include \$\(CLEAR_VARS\)/ { block=$0; in_block=1; next }
+              in_block {
+                block=block "\n" $0
+                if (/^include/) {
+                  if (block !~ /vdc_pie/) { print block }
+                  in_block=0; block=""
+                  next
+                }
+                next
+              }
+              { print }
+            ' bootable/recovery/prebuilt/Android.mk > bootable/recovery/prebuilt/Android.mk.tmp
+            mv bootable/recovery/prebuilt/Android.mk.tmp bootable/recovery/prebuilt/Android.mk
+            echo "Stripped vdc_pie from bootable/recovery/prebuilt/Android.mk"
           fi
-          # Also remove vdc_pie module from bootable/recovery/Android.bp
+          # Strip vdc_pie cc_binary from bootable/recovery/Android.bp
           if [ -f bootable/recovery/Android.bp ]; then
             perl -i -0777 -pe 's/cc_binary\s*\{[^}]*name:\s*"vdc_pie"[^}]*\}//gs' bootable/recovery/Android.bp
             echo "Stripped vdc_pie from bootable/recovery/Android.bp"
