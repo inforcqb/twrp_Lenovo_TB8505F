@@ -58,8 +58,8 @@ jobs:
         run: |
           mkdir -p ~/twrp
           cd ~/twrp
-          # Use twrp-10.0 (NOT deprecated) to avoid vdc_pie prebuilt conflict
-          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-10.0
+          # Use twrp-10.0-deprecated (only twrp-10.0 branch available)
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-10.0-deprecated
 
       - name: Setup Device Tree
         run: |
@@ -108,7 +108,7 @@ jobs:
           echo "Device: Lenovo TB-8505F (MT6761)" > ~/output/build-info.txt
           echo "FDE: aes-cbc-essiv:sha256 + PureSW keymaster" >> ~/output/build-info.txt
           echo "Crypto: TW_CRYPTO_USE_SYSTEM_VOLD enabled" >> ~/output/build-info.txt
-          echo "Manifest: twrp-10.0" >> ~/output/build-info.txt
+          echo "Manifest: twrp-10.0-deprecated" >> ~/output/build-info.txt
           ls -lh ~/output/
 
       - name: Upload TWRP Recovery
