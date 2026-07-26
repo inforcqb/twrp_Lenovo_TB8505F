@@ -84,26 +84,11 @@ jobs:
         run: |
           cd ~/twrp
           echo "=== Fixing vdc_pie prebuilt conflict ==="
-          # Remove the binary
           rm -f bootable/recovery/prebuilt/vdc_pie 2>/dev/null || true
-          # Use Python to safely comment out vdc_pie sections in both files
           for mkfile in bootable/recovery/prebuilt/Android.mk bootable/recovery/Android.bp; do
             if [ -f "$mkfile" ]; then
-              TARGET_FILE="$mkfile" python3 << 'PYEOF'
-import os, re
-path = os.environ['TARGET_FILE']
-with open(path) as f:
-    lines = f.read().split('\n')
-result = []
-for line in lines:
-    if 'vdc_pie' in line.lower():
-        result.append('#' + line)
-    else:
-        result.append(line)
-with open(path, 'w') as f:
-    f.write('\n'.join(result))
-print('Fixed ' + path)
-PYEOF
+              sed -i '/[Vv][Dd][Cc]_[Pp][Ii][Ee]/s/^/#/' "$mkfile"
+              echo "Fixed $mkfile"
             fi
           done
           echo "=== vdc_pie cleanup complete ==="
