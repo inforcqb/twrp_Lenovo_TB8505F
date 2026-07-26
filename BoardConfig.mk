@@ -95,12 +95,11 @@ TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
 
 # Enable system vold decryption (handles both FDE aescbc-essiv:sha256 and FBE)
-# vdc_pie prebuilt conflict resolved in CI workflow by removing the prebuilt
 TW_CRYPTO_USE_SYSTEM_VOLD := true
 
 # Default encryption (no user password) auto-decrypt
 # Android 10 FDE: when no lock screen set, key wrapped with "default_password"
-TW_CRYPTO_DEFAULT_PASSWORD := "default_password"
+TW_CRYPTO_DEFAULT_PASSWORD :*** "default_password"
 TW_CRYPTO_SKIP_PASSWORD_PROMPT := true
 TW_CRYPTO_USE_ROTARY_DEFAULT := true
 
@@ -127,6 +126,11 @@ TARGET_RECOVERY_DEVICE_MODULES += \
 
 # Required shared libs for crypto
 TW_LOAD_VENDOR_MODULES := "keymaster_messages keymaster4 keymaster4support keymaster_portable puresoftkeymasterdevice softgatekeeper kmsetkey"
+
+# Copy custom recovery root files into ramdisk
+PRODUCT_COPY_FILES += \
+    $(DEVICE_PATH)/recovery/root/sbin/auto_decrypt.sh:$(TARGET_RECOVERY_ROOT_OUT)/sbin/auto_decrypt.sh \
+    $(DEVICE_PATH)/recovery/root/init.recovery.crypto.rc:$(TARGET_RECOVERY_ROOT_OUT)/init.recovery.crypto.rc
 
 # Debug
 TWRP_INCLUDE_LOGCAT := true
