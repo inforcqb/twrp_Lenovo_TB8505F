@@ -58,7 +58,6 @@ jobs:
         run: |
           mkdir -p ~/twrp
           cd ~/twrp
-          # Use twrp-10.0-deprecated (only twrp-10.0 branch available)
           repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git -b twrp-10.0-deprecated
 
       - name: Setup Device Tree
@@ -84,13 +83,44 @@ jobs:
       - name: Remove vdc_pie Prebuilt (Fix TW_CRYPTO_USE_SYSTEM_VOLD Conflict)
         run: |
           cd ~/twrp
-          # twrp-10.0-deprecated manifest includes a prebuilt vdc_pie
-          # which conflicts with source-built vdc from bootable/recovery/vold
-          # when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
-          # Remove the entire prebuilt directory since vdc_pie is the only content.
-          if [ -d bootable/recovery/prebuilt ]; then
-            rm -rf bootable/recovery/prebuilt
-            echo "Removed bootable/recovery/prebuilt to resolve vdc_pie conflict"
+          # twrp-10.0-deprecated manifest includes prebuilt vdc_pie
+          # which conflicts with source-built vdc when TW_CRYPTO_USE_SYSTEM_VOLD is enabled.
+          # Step 1: Remove vdc_pie from bootable/recovery/prebuilt/Android.mk (Make-based)
+          PDIR="bootable/recovery/prebuilt"
+          if [ -f "$PDIR/Android.mk" ]; then
+            rm -f "$PDIR/vdc_pie" 2>/dev/null || true
+            cat > /tmp/strip_mk.awk << 'AWKEOF1'
+/include.*CLEAR_VARS/ { block=$0; in_block=1; next }
+in_block {
+  block=block "\n" $0
+  if (/include.*BUILD_PREBUILT/) {
+    if (block !~ /vdc_pie/) { printf "%s\n", block }
+    in_block=0; block=""; next
+  }
+  next
+}
+!in_block
+AWKEOF1
+            awk -f /tmp/strip_mk.awk "$PDIR/Android.mk" > "$PDIR/Android.mk.tmp" && mv "$PDIR/Android.mk.tmp" "$PDIR/Android.mk"
+            echo "Stripped vdc_pie from prebuilt/Android.mk"
+          fi
+          # Step 2: Remove vdc_pie from bootable/recovery/Android.bp (Blueprint/Soong-based)
+          BPF="bootable/recovery/Android.bp"
+          if [ -f "$BPF" ]; then
+            cat > /tmp/strip_bp.awk << 'AWKEOF2'
+/^cc_binary/ || /^cc_binary_host/ || /^cc_defaults/ { block=$0; in_block=1; next }
+in_block {
+  block=block "\n" $0
+  if (/^}/) {
+    if (block !~ /"vdc_pie"/) { printf "%s\n", block }
+    in_block=0; block=""; next
+  }
+  next
+}
+!in_block
+AWKEOF2
+            awk -f /tmp/strip_bp.awk "$BPF" > "$BPF.tmp" && mv "$BPF.tmp" "$BPF"
+            echo "Stripped vdc_pie from bootable/recovery/Android.bp"
           fi
           # Also remove vdc_pie module from bootable/recovery/Android.bp
           if [ -f bootable/recovery/Android.bp ]; then
