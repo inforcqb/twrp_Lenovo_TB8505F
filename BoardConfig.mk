@@ -94,12 +94,15 @@ TARGET_USES_MKE2FS := true
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
 
-# NOTE: Do NOT set TW_CRYPTO_USE_SYSTEM_VOLD with twrp-10.0-deprecated manifest
-#       It causes vdc_pie duplicate module conflict with bootable/recovery/prebuilt
+# Enable system vold decryption (handles both FDE aescbc-essiv:sha256 and FBE)
+# vdc_pie prebuilt conflict resolved in CI workflow by removing the prebuilt
+TW_CRYPTO_USE_SYSTEM_VOLD := true
 
 # Default encryption (no user password) auto-decrypt
 # Android 10 FDE: when no lock screen set, key wrapped with "default_password"
 TW_CRYPTO_DEFAULT_PASSWORD := "default_password"
+TW_CRYPTO_SKIP_PASSWORD_PROMPT := true
+TW_CRYPTO_USE_ROTARY_DEFAULT := true
 
 # Include keymaster/keystore/gatekeeper for decryption
 # Device uses Pure Software Keymaster (no TEE dependency)
