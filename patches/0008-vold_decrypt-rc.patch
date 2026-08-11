@@ -1,0 +1,19 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/init.recovery.vold_decrypt.rc b/bootable/recovery/crypto/vold_decrypt/init.recovery.vold_decrypt.rc
+index 65983eb..6eccc52 100644
+--- a/bootable/recovery/crypto/vold_decrypt/init.recovery.vold_decrypt.rc
++++ b/bootable/recovery/crypto/vold_decrypt/init.recovery.vold_decrypt.rc
+@@ -1,10 +1,10 @@
+-
+-service sys_vold /system/bin/vold \
++service sys_vold /system_root/system/bin/vold \
+         --blkid_context=u:r:blkid:s0 --blkid_untrusted_context=u:r:blkid_untrusted:s0 \
+         --fsck_context=u:r:fsck:s0 --fsck_untrusted_context=u:r:fsck_untrusted:s0
+     socket vold stream 0660 root mount
+     socket cryptd stream 0660 root mount
+-    setenv PATH /system/bin
+-    setenv LD_LIBRARY_PATH /system/lib64:/system/lib
++    setenv PATH /system/bin:/system_root/system/bin
++    setenv LD_LIBRARY_PATH /system_root/system/lib64:/system_root/system/lib:/vendor/lib64:/system/lib64:/system/lib
++    seclabel u:r:recovery:s0
+     disabled
+     oneshot

@@ -50,5 +50,12 @@ PRODUCT_PACKAGES += \
 # vdc_pie: prebuilt FDE client (bootable/recovery/prebuilt). Must be
 # referenced here or the module is never installed into the recovery
 # ramdisk. Installs to /sbin (patches/0006); vold_decrypt execs it there
-# (patches/0007) because the /system mount covers the ramdisk /system dir.
+# (patches/0007) because /system/bin/vdc_pie would resolve into the device
+# system (SAR: /system -> ramdisk dir, device system mounted at /system_root).
 PRODUCT_PACKAGES += vdc_pie
+
+# init.recovery.vold_decrypt.rc defines the sys_vold service. Same story:
+# un-referenced modules are never installed (it was missing from the ramdisk,
+# so 'Start service sys_vold' failed). Patches/0008 adjusts the service for
+# this device's SAR layout (vold at /system_root/system/bin) + seclabel.
+PRODUCT_PACKAGES += init.recovery.vold_decrypt.rc

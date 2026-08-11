@@ -1,17 +1,41 @@
 # Auto-decrypt /data at boot (FDE aes-cbc-essiv:sha256 + default_password)
 #
-# vold itself is NOT started here: vold_decrypt starts it on demand via
-# the sys_vold service defined in init.recovery.vold_decrypt.rc.
 # This file is imported by TWRP's /init.rc (see patches/0005-initrc-import-crypto.patch).
+# All services need an explicit seclabel: recovery init refuses to start a
+# service whose executable has no SELinux domain transition (rootfs label).
 
 on fs
     mkdir /metadata 0700 root root
+    # Real vendor partition: the recovery ramdisk's own /vendor libs are
+    # broken (libTEECommon.so is truncated, linker rejects it), and both
+    # the PureSW keymaster HAL and vold need the device's real vendor
+    # stack. Mounted before class_start default (on fs < on boot).
+    mount ext4 /dev/block/platform/bootdevice/by-name/vendor /vendor ro wait
 
-# Auto-decrypt with the default password (no lockscreen set).
+# --- Software keymaster 4.0 HAL (MTK PureSW/beanpod) + gatekeeper ---------
+# Required by vold (device's /system_root/system/bin/vold) for FDE checkpw.
+# Binaries + libs come from the recovery ramdisk /vendor (never covered:
+# the device system is mounted at /system_root, /vendor is not mounted).
+service vendor.keymaster-4-0-beanpod /vendor/bin/hw/android.hardware.keymaster@4.0-service.beanpod
+    class default
+    user system
+    group system drmrpc
+    seclabel u:r:recovery:s0
+    oneshot
+
+service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    class default
+    user system
+    group system
+    seclabel u:r:recovery:s0
+    oneshot
+
+# --- Auto-decrypt with the default password (no lockscreen set). -----------
 # 'twrp decrypt' is handled by the main TWRP process over the ORS interface,
-# so this service just waits for TWRP to be ready.
+# so this service just waits for TWRP to be ready (retry loop in the script).
 service auto_decrypt /sbin/sh /sbin/auto_decrypt.sh
     class default
     user root
     group root
+    seclabel u:r:recovery:s0
     oneshot

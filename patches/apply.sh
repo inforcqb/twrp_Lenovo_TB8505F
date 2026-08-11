@@ -30,6 +30,7 @@ apply_patch "$PATCH_DIR/0004-vold_decrypt-vdc_pie-disable.patch"
 apply_patch "$PATCH_DIR/0005-initrc-import-crypto.patch"
 apply_patch "$PATCH_DIR/0006-prebuilt-vdc_pie-sbin.patch"
 apply_patch "$PATCH_DIR/0007-vold_decrypt-vdc_pie-sbin.patch"
+apply_patch "$PATCH_DIR/0008-vold_decrypt-rc.patch"
 
 # ziparchive + android-base headers (needed by twrpApex.hpp / twcommon.h,
 # which are pulled in via partitions.hpp by several modules).
