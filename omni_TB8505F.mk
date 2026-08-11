@@ -46,3 +46,9 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     vold \
     secdiscard
+
+# vdc_pie: prebuilt FDE client (bootable/recovery/prebuilt). Must be
+# referenced here or the module is never installed into the recovery
+# ramdisk. Installs to /sbin (patches/0006); vold_decrypt execs it there
+# (patches/0007) because the /system mount covers the ramdisk /system dir.
+PRODUCT_PACKAGES += vdc_pie
