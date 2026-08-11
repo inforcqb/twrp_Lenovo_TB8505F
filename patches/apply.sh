@@ -26,7 +26,7 @@ apply_patch() {
 apply_patch "$PATCH_DIR/0001-vold_decrypt-guard-service-functions.patch"
 apply_patch "$PATCH_DIR/0002-vold_decrypt-loginfo.patch"
 apply_patch "$PATCH_DIR/0003-vold_decrypt-include-paths.patch"
-apply_patch "$PATCH_DIR/0004-prebuilt-vdc_pie-sdk-gate.patch"
+apply_patch "$PATCH_DIR/0004-vold_decrypt-vdc_pie-disable.patch"
 apply_patch "$PATCH_DIR/0005-initrc-import-crypto.patch"
 
 # ziparchive + android-base headers (needed by twrpApex.hpp / twcommon.h,

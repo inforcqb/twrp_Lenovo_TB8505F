@@ -1,0 +1,15 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/Android.mk b/bootable/recovery/crypto/vold_decrypt/Android.mk
+--- a/bootable/recovery/crypto/vold_decrypt/Android.mk
++++ b/bootable/recovery/crypto/vold_decrypt/Android.mk
+@@ -125,5 +125,9 @@
+-        ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28; echo $$?),0)
++        # vdc_pie is provided by bootable/recovery/prebuilt/Android.mk
++        # (prebuilt vdc_pie-<arch>, installed to /system/bin/vdc_pie where
++        # vold_decrypt expects it on SDK >= 28). Building it from source
++        # here would collide with that module (duplicate vdc_pie), so the
++        # source build is disabled.
++        ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 99; echo $$?),0)
+             include $(CLEAR_VARS)
+             LOCAL_MODULE := vdc_pie
+             LOCAL_SRC_FILES := vdc_pie.cpp
+             LOCAL_MODULE_TAGS := optional
