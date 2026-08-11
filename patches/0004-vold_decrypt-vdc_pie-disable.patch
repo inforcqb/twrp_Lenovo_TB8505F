@@ -1,7 +1,7 @@
 diff --git a/bootable/recovery/crypto/vold_decrypt/Android.mk b/bootable/recovery/crypto/vold_decrypt/Android.mk
 --- a/bootable/recovery/crypto/vold_decrypt/Android.mk
 +++ b/bootable/recovery/crypto/vold_decrypt/Android.mk
-@@ -125,5 +125,9 @@
+@@ -125,5 +125,10 @@
 -        ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 28; echo $$?),0)
 +        # vdc_pie is provided by bootable/recovery/prebuilt/Android.mk
 +        # (prebuilt vdc_pie-<arch>, installed to /system/bin/vdc_pie where
