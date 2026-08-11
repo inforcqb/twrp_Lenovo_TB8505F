@@ -1,0 +1,15 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/Android.mk b/bootable/recovery/crypto/vold_decrypt/Android.mk
+--- a/bootable/recovery/crypto/vold_decrypt/Android.mk
++++ b/bootable/recovery/crypto/vold_decrypt/Android.mk
+@@ -134,8 +134,11 @@
+         LOCAL_SRC_FILES = vold_decrypt.cpp
+         LOCAL_SHARED_LIBRARIES := libcutils
+         LOCAL_C_INCLUDES += system/extras/ext4_utils/include
++        LOCAL_C_INCLUDES += bootable/recovery/twrpinstall/include
++        LOCAL_C_INCLUDES += system/core/libziparchive/include
++        LOCAL_C_INCLUDES += system/core/base/include
+         ifeq ($(shell test $(PLATFORM_SDK_VERSION) -ge 29; echo $$?),0)
+             LOCAL_C_INCLUDES += bootable/recovery/crypto/fscrypt
+         else
+             LOCAL_C_INCLUDES += bootable/recovery/crypto/ext4crypt
+         endif

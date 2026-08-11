@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Apply TWRP source fixes required to build this device tree with the
+# twrp-10.0-deprecated manifest (TWRP 10.0 / TeamWin android-10.0 recovery).
+#
+# Run from the root of the synced TWRP source tree:
+#   bash device/Lenovo/TB8505F/patches/apply.sh
+#
+set -e
+
+PATCH_DIR="$(cd "$(dirname "$0")" && pwd)"
+SRC_ROOT="$(cd "$PATCH_DIR/../../../.." && pwd)"
+cd "$SRC_ROOT"
+
+apply_patch() {
+    local patch_file="$1"
+    echo "==> Applying $(basename "$patch_file")"
+    if git apply --check "$patch_file" 2>/dev/null; then
+        git apply "$patch_file"
+    else
+        # fall back to GNU patch with fuzz for robustness
+        patch -p1 --fuzz=3 --forward < "$patch_file"
+    fi
+}
+
+apply_patch "$PATCH_DIR/0001-vold_decrypt-guard-service-functions.patch"
+apply_patch "$PATCH_DIR/0002-vold_decrypt-loginfo.patch"
+apply_patch "$PATCH_DIR/0003-vold_decrypt-include-paths.patch"
+apply_patch "$PATCH_DIR/0004-prebuilt-vdc_pie-sdk-gate.patch"
+apply_patch "$PATCH_DIR/0005-initrc-import-crypto.patch"
+
+# ziparchive + android-base headers (needed by twrpApex.hpp / twcommon.h,
+# which are pulled in via partitions.hpp by several modules).
+echo "==> Copying ziparchive and android-base headers into system/core/include"
+if [ ! -d system/core/libziparchive/include/ziparchive ]; then
+    echo "ERROR: system/core/libziparchive/include/ziparchive not found" >&2
+    exit 1
+fi
+if [ ! -d system/core/base/include/android-base ]; then
+    echo "ERROR: system/core/base/include/android-base not found" >&2
+    exit 1
+fi
+mkdir -p system/core/include/ziparchive system/core/include/android-base
+cp -f system/core/libziparchive/include/ziparchive/*.h system/core/include/ziparchive/
+cp -f system/core/base/include/android-base/*.h system/core/include/android-base/
+
+echo "All patches applied successfully."

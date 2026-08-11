@@ -1,0 +1,21 @@
+diff --git a/bootable/recovery/prebuilt/Android.mk b/bootable/recovery/prebuilt/Android.mk
+--- a/bootable/recovery/prebuilt/Android.mk
++++ b/bootable/recovery/prebuilt/Android.mk
+@@ -924,13 +924,16 @@
+ ifeq ($(TW_INCLUDE_CRYPTO), true)
+     ifneq ($(TW_CRYPTO_USE_SYSTEM_VOLD),)
++        ifeq ($(shell test $(PLATFORM_SDK_VERSION) -lt 28; echo $$?),0)
+         # Prebuilt vdc_pie for pre-Pie SDK Platforms
++        # On SDK >= 28 vdc_pie is built from source by
++        # crypto/vold_decrypt/Android.mk, so skip the prebuilt to avoid a
++        # duplicate module definition (vdc_pie already defined).
+         include $(CLEAR_VARS)
+         LOCAL_MODULE := vdc_pie
+         LOCAL_MODULE_TAGS := optional
+         LOCAL_MODULE_CLASS := RECOVERY_EXECUTABLES
+         LOCAL_MODULE_PATH := $(TARGET_RECOVERY_ROOT_OUT)/system/bin
+         LOCAL_SRC_FILES := vdc_pie-$(TARGET_ARCH)
+         include $(BUILD_PREBUILT)
++        endif
+     endif
+ endif
