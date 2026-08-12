@@ -54,6 +54,14 @@ jobs:
           restore-keys: |
             ccache-twrp-TB8505F-v2-
 
+      # Cache for the dm_remove helper: keyed on the source so the prebuilt
+      # binary is reused across runs unless dm_remove.c changes.
+      - name: Cache dm_remove helper
+        uses: actions/cache@v4
+        with:
+          path: ~/dm_remove_cache
+          key: dm_remove-${{ hashFiles('tools/dm_remove.c') }}
+
       - name: Initialize TWRP Source
         run: |
           mkdir -p ~/twrp
@@ -87,12 +95,23 @@ jobs:
 
       - name: Build dm_remove helper (static, for stale dm cleanup)
         run: |
-          sudo apt-get install -y -qq gcc-aarch64-linux-gnu
+          set -e
           DEVICE_PATH="$HOME/twrp/device/Lenovo/TB8505F"
-          aarch64-linux-gnu-gcc -static -O2 -o "$DEVICE_PATH/recovery/root/sbin/dm_remove" \
-            "$DEVICE_PATH/tools/dm_remove.c"
-          file "$DEVICE_PATH/recovery/root/sbin/dm_remove"
-          ls -la "$DEVICE_PATH/recovery/root/sbin/dm_remove"
+          DST="$DEVICE_PATH/recovery/root/sbin/dm_remove"
+          if [ -f "$HOME/dm_remove_cache/dm_remove" ]; then
+            # Cache hit: reuse the prebuilt static binary, no compiler needed.
+            cp -f "$HOME/dm_remove_cache/dm_remove" "$DST"
+            echo "dm_remove: restored from cache"
+          else
+            sudo apt-get install -y -qq gcc-aarch64-linux-gnu
+            aarch64-linux-gnu-gcc -static -O2 -o "$DST" "$DEVICE_PATH/tools/dm_remove.c"
+            mkdir -p "$HOME/dm_remove_cache"
+            cp -f "$DST" "$HOME/dm_remove_cache/dm_remove"
+            echo "dm_remove: built and cached"
+          fi
+          chmod 755 "$DST"
+          file "$DST"
+          ls -la "$DST"
 
       - name: Build TWRP Recovery
         timeout-minutes: 120
