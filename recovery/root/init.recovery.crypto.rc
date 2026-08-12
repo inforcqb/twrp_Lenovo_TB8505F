@@ -56,3 +56,18 @@ service auto_decrypt /sbin/sh /sbin/auto_decrypt.sh
     group root
     seclabel u:r:recovery:s0
     oneshot
+
+# --- Debug monitor: logs mount changes, /dev/block dm-* creation, and
+# vold/keymaster kernel log lines to /tmp/dm_monitor.log. Only active when
+# the debug build flag is set via dm_monitor.enabled=1 (set from the kernel
+# cmdline or a debug build); keeps overhead ~zero otherwise.
+service dm_monitor /sbin/sh /sbin/dm_monitor.sh
+    class default
+    user root
+    group root
+    seclabel u:r:recovery:s0
+    disabled
+    oneshot
+
+on property:dm_monitor.enabled=1
+    start dm_monitor

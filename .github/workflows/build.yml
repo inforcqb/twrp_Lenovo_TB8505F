@@ -85,6 +85,15 @@ jobs:
           cd ~/twrp
           bash device/Lenovo/TB8505F/patches/apply.sh
 
+      - name: Build dm_remove helper (static, for stale dm cleanup)
+        run: |
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu
+          DEVICE_PATH="$HOME/twrp/device/Lenovo/TB8505F"
+          aarch64-linux-gnu-gcc -static -O2 -o "$DEVICE_PATH/recovery/root/sbin/dm_remove" \
+            "$DEVICE_PATH/tools/dm_remove.c"
+          file "$DEVICE_PATH/recovery/root/sbin/dm_remove"
+          ls -la "$DEVICE_PATH/recovery/root/sbin/dm_remove"
+
       - name: Build TWRP Recovery
         timeout-minutes: 120
         run: |
