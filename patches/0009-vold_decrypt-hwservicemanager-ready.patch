@@ -1,0 +1,35 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+index 4a76405..0000000 100644
+--- a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
++++ b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+@@ -775,9 +775,9 @@ void Set_Needed_Properties(void) {
+ 		property_set("ro.storage_structure", ro_storage_structure.c_str());
+ 	}
+-	property_set("hwservicemanager.ready", "false");
+-	property_set("sys.listeners.registered", "false");
+-	property_set("vendor.sys.listeners.registered", "false");
++	// Do NOT force these to false: libhidlbase in vold blocks forever on
++	// keymaster calls while hwservicemanager.ready != true, and nothing in
++	// this build restores it (TW_CRYPTO_SYSTEM_VOLD_SERVICES is not compiled).
++	property_set("hwservicemanager.ready", "true");
++	property_set("sys.listeners.registered", "true");
++	property_set("vendor.sys.listeners.registered", "true");
+ }
+ 
+ void Update_Patch_Level(void) {
+@@ -1393,6 +1393,17 @@ int Vold_Decrypt_Core(const string& Password) {
+ 
+ 	LOGINFO("Finished.\n");
+ 
++	// Restore the ready flags unconditionally. Set_Needed_Properties() used
++	// to force hwservicemanager.ready=false at start; the restore path lives
++	// under TW_CRYPTO_SYSTEM_VOLD_SERVICES which is not compiled here, so
++	// every later vold keymaster call would block forever in the
++	// "Waited for hwservicemanager.ready" loop (observed on TB8505F).
++	property_set("hwservicemanager.ready", "true");
++	property_set("sys.listeners.registered", "true");
++	property_set("vendor.sys.listeners.registered", "true");
++
+ #ifdef TW_CRYPTO_SYSTEM_VOLD_SERVICES
+ 	Set_Needed_Properties();
+ 	// Restart previously running services
