@@ -60,7 +60,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/dm_remove_cache
-          key: dm_remove-${{ hashFiles('tools/dm_remove.c') }}
+          key: dm_remove-${{ hashFiles('device-tree/tools/dm_remove.c') }}
 
       - name: Initialize TWRP Source
         run: |
