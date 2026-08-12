@@ -1,0 +1,40 @@
+diff --git a/partitionmanager.cpp b/partitionmanager.cpp
+--- a/partitionmanager.cpp
++++ b/partitionmanager.cpp
+@@ -1944,6 +1944,28 @@
+ 		return 0;
+ 	}
+ 
++#ifdef TW_CRYPTO_USE_SYSTEM_VOLD
++	// TB8505F (Android 10 SAR + PureSW keymaster): skip TWRP's built-in
++	// cryptfs entirely. The legacy keymaster path fails on Android 10
++	// ("could not find any keystore module" -> SIGABRT) and, worse, leaves a
++	// stale dm-0 ("userdata") behind when the password check fails after the
++	// master key was decrypted, making every later attempt fail with
++	// "Cannot create dm-crypt device userdata: Device or resource busy".
++	// Going straight to vold_decrypt uses the exact same working path as the
++	// CLI (twrp decrypt <password>) - keymaster via beanpod + vold checkpw -
++	// for pattern, PIN, password and default_password alike.
++	int pwret = vold_decrypt(Password);
++	switch (pwret) {
++		case VD_SUCCESS:
++			break;
++		case VD_ERR_MISSING_VDC:
++			gui_msg(Msg(msg::kError, "decrypt_data_vold_os_missing=Missing files needed for vold decrypt: {1}")("/system/bin/vdc"));
++			break;
++		case VD_ERR_MISSING_VOLD:
++			gui_msg(Msg(msg::kError, "decrypt_data_vold_os_missing=Missing files needed for vold decrypt: {1}")("/system/bin/vold"));
++			break;
++	}
++#else
+ 	int pwret = -1;
+ 	pid_t pid = fork();
+ 	if (pid < 0) {
+@@ -1964,7 +1986,6 @@
+ 			pwret = WEXITSTATUS(status) ? -1 : 0;
+ 	}
+ 
+-#ifdef TW_CRYPTO_USE_SYSTEM_VOLD
+ 	if (pwret != 0) {
+ 		pwret = vold_decrypt(Password);
+ 		switch (pwret) {
