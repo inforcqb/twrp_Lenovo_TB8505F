@@ -1,6 +1,6 @@
-diff --git a/partitionmanager.cpp b/partitionmanager.cpp
---- a/partitionmanager.cpp
-+++ b/partitionmanager.cpp
+﻿diff --git a/bootable/recovery/partitionmanager.cpp b/bootable/recovery/partitionmanager.cpp
+--- a/bootable/recovery/partitionmanager.cpp
++++ b/bootable/recovery/partitionmanager.cpp
 @@ -1944,6 +1944,28 @@
  		return 0;
  	}
