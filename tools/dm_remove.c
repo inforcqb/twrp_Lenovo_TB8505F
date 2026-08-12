@@ -1,38 +1,43 @@
 /*
  * dm_remove - remove a stale device-mapper device by name.
  *
- * vold (Android 10 FDE) and TWRP's built-in cryptfs leave the "userdata"
- * dm-crypt device behind when a checkpw attempt fails after the master key
- * was decrypted. A leftover dm-0 then makes every later decrypt attempt fail
- * with:
- *   "Cannot create dm-crypt device userdata: Device or resource busy"
- *
- * This tiny static helper issues DM_DEV_REMOVE so the stale device can be
- * cleaned up before retrying. Built by CI (see .github/workflows/build.yml)
- * with aarch64-linux-gnu-gcc -static and installed to /sbin/dm_remove.
- *
- * The ioctl setup mirrors Android's ioctl_init() (system/vold/cryptfs.cpp):
- * data_size must be a large buffer (DM_CRYPT_BUF_SIZE == 4096), NOT
- * sizeof(struct dm_ioctl), and version 4.0.0. A bare sizeof() buffer makes
- * the kernel reject the call with EINVAL.
- *
- * Usage: dm_remove <dm-name>     (e.g. dm_remove userdata)
+ * Removes the leftover "userdata" dm-crypt device that TWRP/vold leave
+ * behind when a checkpw attempt fails. DM_DEV_REMOVE on a device that was
+ * created but never loaded with a table (or that the kernel considers
+ * "inactive") can return EINVAL; the robust sequence is:
+ *   1. DM_DEV_WAIT (let it settle)
+ *   2. DM_DEV_REMOVE
+ * Both use the same ioctl buffer layout as Android's ioctl_init():
+ * data_size = 4096 (DM_CRYPT_BUF_SIZE), version 4.0.0.
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <linux/dm-ioctl.h>
 
 #define DM_CRYPT_BUF_SIZE 4096
 
+static void ioctl_init(struct dm_ioctl *io, size_t dataSize, const char *name)
+{
+	memset(io, 0, dataSize);
+	io->data_size = dataSize;
+	io->data_start = sizeof(struct dm_ioctl);
+	io->version[0] = 4;
+	io->version[1] = 0;
+	io->version[2] = 0;
+	if (name)
+		strncpy(io->name, name, sizeof(io->name) - 1);
+}
+
 int main(int argc, char** argv)
 {
 	char buffer[DM_CRYPT_BUF_SIZE];
 	struct dm_ioctl *io = (struct dm_ioctl*)buffer;
-	int fd;
+	int fd, rc;
 
 	if (argc < 2) {
 		fprintf(stderr, "usage: %s <dm-name>\n", argv[0]);
@@ -45,16 +50,16 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	memset(buffer, 0, sizeof(buffer));
-	io->data_size = sizeof(buffer);		/* full 4096 buffer, like Android */
-	io->data_start = sizeof(struct dm_ioctl);
-	io->version[0] = 4;
-	io->version[1] = 0;
-	io->version[2] = 0;
-	strncpy(io->name, argv[1], sizeof(io->name) - 1);
-	io->name[sizeof(io->name) - 1] = '\0';
+	/* Wait for the device to settle first (helps with inactive devices). */
+	ioctl_init(io, sizeof(buffer), argv[1]);
+	rc = ioctl(fd, DM_DEV_WAIT, io);
+	if (rc < 0)
+		fprintf(stderr, "DM_DEV_WAIT: %s (continuing)\n", strerror(errno));
 
-	if (ioctl(fd, DM_DEV_REMOVE, io) < 0) {
+	/* Now remove it. */
+	ioctl_init(io, sizeof(buffer), argv[1]);
+	rc = ioctl(fd, DM_DEV_REMOVE, io);
+	if (rc < 0) {
 		perror("DM_DEV_REMOVE");
 		close(fd);
 		return 1;
