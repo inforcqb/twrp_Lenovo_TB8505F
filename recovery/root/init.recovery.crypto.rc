@@ -11,6 +11,13 @@ on fs
     # the PureSW keymaster HAL and vold need the device's real vendor
     # stack. Mounted before class_start default (on fs < on boot).
     mount ext4 /dev/block/platform/bootdevice/by-name/vendor /vendor ro wait
+    # The ramdisk has no /system_root directory entry (only /system, which
+    # is a symlink target for the normal init path), so init's mount(2)
+    # fails with ENOENT unless we create the mountpoint first. Without it
+    # /system_root only gets mounted later by TWRP itself (~7s), by which
+    # time beanpod has already died with CANNOT LINK
+    # libpuresoftkeymasterdevice (vndk-29 lives under /system_root).
+    mkdir /system_root 0755 root root
     # Mount the system partition early too: the keymaster HAL (beanpod)
     # resolves libs (libkeymaster_messages, android.hardware.keymaster@4.0,
     # vndk-29/libpuresoftkeymasterdevice) from /system_root/system/lib64,
