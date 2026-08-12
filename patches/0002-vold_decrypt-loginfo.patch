@@ -1,0 +1,8 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+--- a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
++++ b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+@@ -72,2 +72,3 @@
+-#define LOGINFO(...)  do { printf(__VA_ARGS__); if (fp_kmsg) { fprintf(fp_kmsg, "[VOLD_DECRYPT]I:" __VA_ARGS__); fflush(fp_kmsg); } } while (0)
++#undef LOGINFO
++#define LOGINFO(...)  do { printf(__VA_ARGS__); if (fp_kmsg) { fprintf(fp_kmsg, "[VOLD_DECRYPT]I:" __VA_ARGS__); fflush(fp_kmsg); } } while (0)
+ #define LOGKMSG(...)  do { if (fp_kmsg) { fprintf(fp_kmsg, "[VOLD_DECRYPT]K:" __VA_ARGS__); fflush(fp_kmsg); } } while (0)

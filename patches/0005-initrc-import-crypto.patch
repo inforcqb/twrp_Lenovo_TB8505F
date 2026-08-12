@@ -1,0 +1,8 @@
+diff --git a/bootable/recovery/etc/init.rc b/bootable/recovery/etc/init.rc
+--- a/bootable/recovery/etc/init.rc
++++ b/bootable/recovery/etc/init.rc
+@@ -5,3 +5,4 @@
+ import /init.recovery.service.rc
+ import /init.recovery.vold_decrypt.rc
++import /init.recovery.crypto.rc
+ import /init.recovery.${ro.hardware}.rc

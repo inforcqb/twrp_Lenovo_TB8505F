@@ -1,0 +1,16 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+index 4a76405..bab7a6d 100644
+--- a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
++++ b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+@@ -995,7 +995,10 @@ int Exec_vdc_cryptfs(const string& command, const string& argument, vdc_ReturnVa
+ 	}
+ 
+ 	// getpwtype and checkpw commands are removed from Pie vdc, using modified vdc_pie
+-	const char *cmd[] = { "/system/bin/vdc_pie", "cryptfs" };
++	// vdc_pie lives in the recovery ramdisk at /sbin: on legacy devices the
++	// /system mount covers the ramdisk /system/bin, so the path below must
++	// stay outside /system to resolve after the system partition is mounted.
++	const char *cmd[] = { "/sbin/vdc_pie", "cryptfs" };
+ 	if (sdkver < 28)
+ 		cmd[0] = "/system/bin/vdc";
+ 	const char *env[] = { "LD_LIBRARY_PATH=/system/lib64:/system/lib", NULL };

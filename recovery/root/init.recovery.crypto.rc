@@ -1,22 +1,73 @@
-on fs
-    # Start vold for FBE decryption
-    start vold
-    mkdir /metadata 0700 root root
-    mkdir /data 0771 system system
-    mkdir /data/media 0770 media_rw media_rw
-
-service vold /system/bin/vold \
-    --blkid_context=u:r:blkid:s0 --blkid_untrusted_context=u:r:blkid_untrusted:s0 \
-    --fsck_context=u:r:fsck:s0 --fsck_untrusted_context=u:r:fsck_untrusted:s0
-    class core
-    critical
-    socket vold stream 0660 root mount
-    socket cryptd stream 0660 root mount
-    writepid /dev/cpuset/foreground/tasks
-
 # Auto-decrypt /data at boot (FDE aes-cbc-essiv:sha256 + default_password)
+#
+# This file is imported by TWRP's /init.rc (see patches/0005-initrc-import-crypto.patch).
+# All services need an explicit seclabel: recovery init refuses to start a
+# service whose executable has no SELinux domain transition (rootfs label).
+
+on fs
+    mkdir /metadata 0700 root root
+    # Real vendor partition: the recovery ramdisk's own /vendor libs are
+    # broken (libTEECommon.so is truncated, linker rejects it), and both
+    # the PureSW keymaster HAL and vold need the device's real vendor
+    # stack. Mounted before class_start default (on fs < on boot).
+    mount ext4 /dev/block/platform/bootdevice/by-name/vendor /vendor ro wait
+    # The ramdisk has no /system_root directory entry (only /system, which
+    # is a symlink target for the normal init path), so init's mount(2)
+    # fails with ENOENT unless we create the mountpoint first. Without it
+    # /system_root only gets mounted later by TWRP itself (~7s), by which
+    # time beanpod has already died with CANNOT LINK
+    # libpuresoftkeymasterdevice (vndk-29 lives under /system_root).
+    mkdir /system_root 0755 root root
+    # Mount the system partition early too: the keymaster HAL (beanpod)
+    # resolves libs (libkeymaster_messages, android.hardware.keymaster@4.0,
+    # vndk-29/libpuresoftkeymasterdevice) from /system_root/system/lib64,
+    # which only exists once the system partition is mounted. ro: vold and
+    # vold_decrypt only read from it.
+    mount ext4 /dev/block/platform/bootdevice/by-name/system /system_root ro wait
+
+# --- Software keymaster 4.0 HAL (MTK PureSW/beanpod) + gatekeeper ---------
+# Required by vold (device's /system_root/system/bin/vold) for FDE checkpw.
+# LD_LIBRARY_PATH points at the mounted system/vendor lib dirs: the beanpod
+# binary needs libkeymaster_messages/android.hardware.keymaster@4.0 from
+# /system_root/system/lib64 and libpuresoftkeymasterdevice from its
+# vndk-29 subdir (the vendor namespace only searches /vendor/lib64).
+service vendor.keymaster-4-0-beanpod /vendor/bin/hw/android.hardware.keymaster@4.0-service.beanpod
+    class default
+    user system
+    group system drmrpc
+    setenv LD_LIBRARY_PATH /system_root/system/lib64:/system_root/system/lib64/vndk-29:/system_root/system/lib:/vendor/lib64
+    seclabel u:r:recovery:s0
+    oneshot
+
+service vendor.gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    class default
+    user system
+    group system
+    setenv LD_LIBRARY_PATH /system_root/system/lib64:/system_root/system/lib64/vndk-29:/system_root/system/lib:/vendor/lib64
+    seclabel u:r:recovery:s0
+    oneshot
+
+# --- Auto-decrypt with the default password (no lockscreen set). -----------
+# 'twrp decrypt' is handled by the main TWRP process over the ORS interface,
+# so this service just waits for TWRP to be ready (retry loop in the script).
 service auto_decrypt /sbin/sh /sbin/auto_decrypt.sh
-    class late_start
+    class default
     user root
     group root
+    seclabel u:r:recovery:s0
     oneshot
+
+# --- Debug monitor: logs mount changes, /dev/block dm-* creation, and
+# vold/keymaster kernel log lines to /tmp/dm_monitor.log. Only active when
+# the debug build flag is set via dm_monitor.enabled=1 (set from the kernel
+# cmdline or a debug build); keeps overhead ~zero otherwise.
+service dm_monitor /sbin/sh /sbin/dm_monitor.sh
+    class default
+    user root
+    group root
+    seclabel u:r:recovery:s0
+    disabled
+    oneshot
+
+on property:dm_monitor.enabled=1
+    start dm_monitor

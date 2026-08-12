@@ -1,0 +1,10 @@
+# Android fstab for Lenovo TB-8505F (MT6761, SAR Android 10)
+# Standard fs_mgr format. vold_decrypt's Symlink_Recovery_Fstab() hides
+# TWRP's /etc/recovery.fstab and symlinks it to /fstab.${ro.hardware}
+# (= /fstab.mt6761); fs_mgr then reads THIS file for vold.
+# Layout mirrors the device tree recovery.fstab (by-name partitions).
+
+/dev/block/platform/bootdevice/by-name/system   /system_root   ext4   ro   wait,avb=vbmeta,first_stage_mount
+/dev/block/platform/bootdevice/by-name/vendor   /vendor        ext4   ro   wait,avb,first_stage_mount
+/dev/block/platform/bootdevice/by-name/userdata /data          ext4   noatime,nosuid,nodev,noauto_da_alloc,errors=panic,nobarrier   wait,check,quota,reservedsize=200M,formattable,resize,forceencrypt=/dev/block/platform/bootdevice/by-name/metadata
+/dev/block/platform/bootdevice/by-name/para     /misc          emmc   defaults   defaults
