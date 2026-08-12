@@ -32,6 +32,22 @@ apply_patch "$PATCH_DIR/0006-prebuilt-vdc_pie-sbin.patch"
 apply_patch "$PATCH_DIR/0007-vold_decrypt-vdc_pie-sbin.patch"
 apply_patch "$PATCH_DIR/0008-vold_decrypt-rc.patch"
 
+# Replace the prebuilt vdc_pie with the transact-code-fixed binary.
+# TWRP's vdc_pie (Pie IVold) calls cryptfs checkpw with transact code 27,
+# but Android 10 vold moved fdeCheckPassword to code 29 (mountAppFuse is now
+# 27). The unpatched vdc_pie therefore hits mountAppFuse and returns -1 with
+# zero vold logs. This copy overwrites the TWRP prebuilt with the patched
+# one (movz w1, #27 -> #29).
+echo "==> Installing transact-code-fixed vdc_pie (code 29) prebuilt"
+VOLD_PIE_DST="bootable/recovery/prebuilt/vdc_pie-arm64"
+if [ -f "$VOLD_PIE_DST" ]; then
+    cp -f "$PATCH_DIR/vdc_pie-arm64" "$VOLD_PIE_DST"
+    chmod 755 "$VOLD_PIE_DST"
+    echo "    replaced $VOLD_PIE_DST"
+else
+    echo "WARNING: $VOLD_PIE_DST not found, patched vdc_pie NOT installed!" >&2
+fi
+
 # ziparchive + android-base headers (needed by twrpApex.hpp / twcommon.h,
 # which are pulled in via partitions.hpp by several modules).
 echo "==> Copying ziparchive and android-base headers into system/core/include"
