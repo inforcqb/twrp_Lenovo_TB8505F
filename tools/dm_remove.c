@@ -79,6 +79,10 @@ int main(int argc, char** argv)
 	io->data_start = sizeof(struct dm_ioctl_49);
 	strncpy(io->name, argv[1], sizeof(io->name) - 1);
 
+	fprintf(stderr, "dbg: ver=%u.%u.%u data_size=%u data_start=%u cmd=0x%08x\n",
+		io->version[0], io->version[1], io->version[2],
+		io->data_size, io->data_start, DM_DEV_REMOVE_IOCTL);
+
 	rc = ioctl(fd, DM_DEV_WAIT_IOCTL, io);
 	if (rc < 0)
 		fprintf(stderr, "DM_DEV_WAIT: %s (continuing)\n", strerror(errno));
