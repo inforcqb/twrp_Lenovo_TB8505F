@@ -1,0 +1,16 @@
+diff --git a/bootable/recovery/twrp-functions.cpp b/bootable/recovery/twrp-functions.cpp
+--- a/bootable/recovery/twrp-functions.cpp
++++ b/bootable/recovery/twrp-functions.cpp
+@@ -651,4 +651,12 @@ int TWFunc::tw_reboot(RebootCommand command)
+ 	// Always force a sync before we reboot
+ 	sync();
+ 
++	// TB8505F (Android 10 SAR, FDE forceencrypt=metadata): vold decrypt
++	// can rewrite/corrupt the metadata partition, which then makes the OS
++	// unable to decrypt /data on the next boot. Restore the boot-time
++	// metadata backup (taken by meta_guard.sh before any decrypt attempt)
++	// before ANY state transition: system / recovery / bootloader /
++	// poweroff / download / edl / fastboot.
++	check_and_run_script("/system/bin/rebootmeta.sh", "restore fde metadata");
++
+ 	switch (command) {

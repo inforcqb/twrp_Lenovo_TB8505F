@@ -24,6 +24,13 @@ on fs
     # which only exists once the system partition is mounted. ro: vold and
     # vold_decrypt only read from it.
     mount ext4 /dev/block/platform/bootdevice/by-name/system /system_root ro wait
+    # FDE metadata backup: snapshot the metadata partition (holds the crypto
+    # master-key blob, forceencrypt=.../by-name/metadata) BEFORE any vold
+    # decrypt attempt can rewrite it. The copy lives in /tmp for this
+    # session; patches/0012 + /system/bin/rebootmeta.sh restore it right
+    # before every reboot/poweroff, so the OS always boots with the pristine
+    # metadata state it left behind.
+    exec u:r:recovery:s0 /sbin/sh /sbin/meta_guard.sh backup
 
 # --- Software keymaster 4.0 HAL (MTK PureSW/beanpod) + gatekeeper ---------
 # Required by vold (device's /system_root/system/bin/vold) for FDE checkpw.
