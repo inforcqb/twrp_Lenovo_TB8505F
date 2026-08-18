@@ -30,7 +30,11 @@ on fs
     # session; patches/0012 + /system/bin/rebootmeta.sh restore it right
     # before every reboot/poweroff, so the OS always boots with the pristine
     # metadata state it left behind.
-    exec u:r:recovery:s0 /sbin/sh /sbin/meta_guard.sh backup
+    # NOTE: Android 10 init 'exec' syntax is
+    #   exec [SECLABEL [UID [GID]*] --] COMMAND ARGS...
+    # The '--' separator is MANDATORY: without it init treats the seclabel as
+    # the executable (execv('u:r:recovery:s0') -> ENOENT, silently skipped).
+    exec u:r:recovery:s0 -- /sbin/sh /sbin/meta_guard.sh backup
 
 # --- Software keymaster 4.0 HAL (MTK PureSW/beanpod) + gatekeeper ---------
 # Required by vold (device's /system_root/system/bin/vold) for FDE checkpw.
