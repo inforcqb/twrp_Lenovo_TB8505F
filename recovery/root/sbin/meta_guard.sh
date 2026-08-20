@@ -54,6 +54,19 @@ backup() {
         exit 0
     fi
 
+    # Blank/corrupt guard: if the first 1MB of the metadata partition is
+    # all zeros the partition is empty/wiped (failed flash, wipe, or vold
+    # damage before we could snapshot it). A backup taken from it would be
+    # garbage and must NEVER overwrite the persisted good copy in
+    # $DATA_BAK from an earlier session. Skip the whole backup so restore
+    # falls back to that preserved copy instead.
+    # (Compare against /dev/zero: grep '[^0]' does NOT work here, every
+    # NUL byte also matches '[^0]'.)
+    if dd if="$META_DEV" bs=4096 count=256 2>/dev/null | cmp -s - /dev/zero; then
+        log "backup: $META_DEV first 1MB is all zeros (blank/corrupt), keeping old $DATA_BAK"
+        exit 0
+    fi
+
     # Read via a temp file so a failed/partial read never clobbers a
     # previous good backup (e.g. /data fallback from an earlier session).
     dd if="$META_DEV" of="$TMP_BAK.tmp" bs=4096 2>/dev/null
