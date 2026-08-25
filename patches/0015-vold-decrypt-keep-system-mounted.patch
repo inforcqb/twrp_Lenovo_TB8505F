@@ -1,0 +1,39 @@
+diff --git a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+index 977f0f5..a32458a 100644
+--- a/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
++++ b/bootable/recovery/crypto/vold_decrypt/vold_decrypt.cpp
+@@ -1377,22 +1377,20 @@ int Vold_Decrypt_Core(const string& Password) {
+ 	if (is_fstab_symlinked)
+ 		Restore_Recovery_Fstab();
+ 
+-	if (!PartitionManager.UnMount_By_Path(PartitionManager.Get_Android_Root_Path(), true)) {
+-		// PartitionManager failed to unmount ANDROID_ROOT, this should not happen,
+-		// but in case it does, do a lazy unmount
+-		LOGINFO("WARNING: '%s' could not be unmounted normally!\n", PartitionManager.Get_Android_Root_Path().c_str());
+-		umount2(PartitionManager.Get_Android_Root_Path().c_str(), MNT_DETACH);
+-	}
+-
+-#ifdef TW_CRYPTO_SYSTEM_VOLD_MOUNT
++	// TB8505F: keep ANDROID_ROOT (and the other init-mounted partitions)
++	// mounted for the whole session. beanpod/vold resolve libs from
++	// /system_root and /vendor (LD_LIBRARY_PATH); on this device ANY unmount
++	// of the system partition - successful or lazy-detached - leaves the
++	// block device permanently busy (every later mount fails EBUSY until
++	// reboot), breaking system mount for installs/backups/build.prop reads.
++	// TWRP treats the init-mounted /system_root as mounted and remounts rw on
++	// demand, so the stock unmount + MNT_DETACH is removed here.
++	LOGINFO("TB8505F: keeping %s mounted (any unmount breaks later remounts)\n", PartitionManager.Get_Android_Root_Path().c_str());
++#if defined(TW_CRYPTO_SYSTEM_VOLD_MOUNT) && defined(TW_CRYPTO_SYSTEM_VOLD_SERVICES)
+ 	for (size_t i = 0; i < partitions.size(); ++i) {
+ 		string mnt_point = "/" + partitions[i];
+-		if(PartitionManager.Is_Mounted_By_Path(mnt_point)) {
+-			if (!PartitionManager.UnMount_By_Path(mnt_point, true)) {
+-				LOGINFO("WARNING: %s partition could not be unmounted normally!\n", partitions[i].c_str());
+-				umount2(mnt_point.c_str(), MNT_DETACH);
+-			}
+-		}
++		if (PartitionManager.Is_Mounted_By_Path(mnt_point))
++			LOGINFO("TB8505F: keeping %s mounted (same reason)\n", mnt_point.c_str());
+ 	}
+ #endif
+ 
