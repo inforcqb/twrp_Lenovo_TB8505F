@@ -33,6 +33,10 @@ apply_patch "$PATCH_DIR/0007-vold_decrypt-vdc_pie-sbin.patch"
 apply_patch "$PATCH_DIR/0008-vold_decrypt-rc.patch"
 apply_patch "$PATCH_DIR/0009-vold_decrypt-hwservicemanager-ready.patch"
 apply_patch "$PATCH_DIR/0011-partitionmanager-direct-vold.patch"
+apply_patch "$PATCH_DIR/0012-twrp-reboot-meta-restore.patch"
+apply_patch "$PATCH_DIR/0013-refuse-auto-scripts.patch"
+apply_patch "$PATCH_DIR/0014-refuse-scripts-persist.patch"
+apply_patch "$PATCH_DIR/0015-vold-decrypt-keep-system-mounted.patch"
 
 # Replace the prebuilt vdc_pie with the transact-code-fixed binary.
 # TWRP's vdc_pie (Pie IVold) calls cryptfs checkpw with transact code 27,

@@ -1,0 +1,222 @@
+diff --git a/bootable/recovery/twrp-functions.cpp b/bootable/recovery/twrp-functions.cpp
+index 9f735f0..d9b7d2b 100644
+--- a/bootable/recovery/twrp-functions.cpp
++++ b/bootable/recovery/twrp-functions.cpp
+@@ -642,6 +642,176 @@ void TWFunc::Update_Intent_File(string Intent) {
+ 	}
+ }
+ 
++// ===========================================================================
++// MetaGuard - TB8505F FDE metadata partition backup/restore
++// ---------------------------------------------------------------------------
++// vold's decrypt path (checkpw) can rewrite the *metadata* partition (the
++// crypto master-key blob lives in its first ~12KB). A metadata partition
++// left half-updated breaks OS decrypt on next boot. Snapshot it before any
++// decrypt attempt and restore it before ANY reboot/poweroff transition.
++//
++// Backup : /tmp/meta_backup.img (this session) + /data/local/tmp/meta_backup.img
++//          (persisted once /data is decrypted/mounted).
++// Restore: /tmp first, falls back to the persisted copy.
++// Guard  : a partition whose first 1MB is all zeros is blank/corrupt - never
++//          overwrite the persisted good copy with garbage.
++// ===========================================================================
++
++static const char* MetaGuard_Device() { return "/dev/block/platform/bootdevice/by-name/metadata"; }
++static const char* MetaGuard_TmpBackup() { return "/tmp/meta_backup.img"; }
++static const char* MetaGuard_DataBackup() { return "/data/local/tmp/meta_backup.img"; }
++
++static bool MetaGuard_IsDataMounted() {
++	std::ifstream mounts("/proc/mounts");
++	std::string line;
++	while (std::getline(mounts, line)) {
++		if (line.find(" /data ") != std::string::npos)
++			return true;
++	}
++	return false;
++}
++
++// First 1MB all zeros => blank/corrupt partition (failed flash, wipe, or
++// vold damage before we could snapshot it).
++static bool MetaGuard_IsBlank(const char* dev) {
++	unsigned char buf[4096];
++	int fd = open(dev, O_RDONLY);
++	if (fd < 0)
++		return false;
++	bool blank = true;
++	for (int i = 0; i < 256; i++) {
++		ssize_t n = read(fd, buf, sizeof(buf));
++		if (n <= 0)
++			break;
++		for (ssize_t j = 0; j < n; j++) {
++			if (buf[j] != 0) {
++				blank = false;
++				break;
++			}
++		}
++		if (!blank)
++			break;
++	}
++	close(fd);
++	return blank;
++}
++
++// Copy to a regular file via temp + rename (partial copy never clobbers dst).
++static bool MetaGuard_WriteFile(const char* src, const char* dst) {
++	int in = open(src, O_RDONLY);
++	if (in < 0)
++		return false;
++	std::string tmp(dst);
++	tmp += ".tmp";
++	int out = open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
++	if (out < 0) {
++		close(in);
++		return false;
++	}
++	char buf[4096];
++	ssize_t n;
++	while ((n = read(in, buf, sizeof(buf))) > 0) {
++		ssize_t off = 0;
++		while (off < n) {
++			ssize_t w = write(out, buf + off, n - off);
++			if (w <= 0) {
++				close(in); close(out); unlink(tmp.c_str());
++				return false;
++			}
++			off += w;
++		}
++	}
++	close(in);
++	if (fsync(out) != 0) {
++		close(out); unlink(tmp.c_str());
++		return false;
++	}
++	close(out);
++	if (rename(tmp.c_str(), dst) != 0) {
++		unlink(tmp.c_str());
++		return false;
++	}
++	return true;
++}
++
++// Write directly to the metadata block device + fsync.
++static bool MetaGuard_WriteDevice(const char* src, const char* dev) {
++	int in = open(src, O_RDONLY);
++	if (in < 0)
++		return false;
++	int out = open(dev, O_WRONLY);
++	if (out < 0) {
++		close(in);
++		return false;
++	}
++	char buf[4096];
++	ssize_t n;
++	while ((n = read(in, buf, sizeof(buf))) > 0) {
++		ssize_t off = 0;
++		while (off < n) {
++			ssize_t w = write(out, buf + off, n - off);
++			if (w <= 0) {
++				close(in); close(out);
++				return false;
++			}
++			off += w;
++		}
++	}
++	close(in);
++	fsync(out);
++	close(out);
++	return true;
++}
++
++int TWFunc::MetaGuard_Backup() {
++	LOGINFO("MetaGuard: backup start\n");
++	if (!TWFunc::Path_Exists(MetaGuard_Device())) {
++		LOGINFO("MetaGuard: %s not present, skipping backup\n", MetaGuard_Device());
++		return 0;
++	}
++	if (MetaGuard_IsBlank(MetaGuard_Device())) {
++		LOGINFO("MetaGuard: %s first 1MB all zeros (blank/corrupt), keeping old backup\n", MetaGuard_Device());
++		return 0;
++	}
++	if (!MetaGuard_WriteFile(MetaGuard_Device(), MetaGuard_TmpBackup())) {
++		LOGERR("MetaGuard: backup FAILED writing %s\n", MetaGuard_TmpBackup());
++		return -1;
++	}
++	struct stat st;
++	if (stat(MetaGuard_TmpBackup(), &st) == 0)
++		LOGINFO("MetaGuard: backup %lld bytes -> %s\n", (long long)st.st_size, MetaGuard_TmpBackup());
++	if (MetaGuard_IsDataMounted()) {
++		if (MetaGuard_WriteFile(MetaGuard_TmpBackup(), MetaGuard_DataBackup()))
++			LOGINFO("MetaGuard: persisted copy -> %s\n", MetaGuard_DataBackup());
++	}
++	return 0;
++}
++
++int TWFunc::MetaGuard_Restore() {
++	LOGINFO("MetaGuard: restore start\n");
++	std::string src;
++	if (TWFunc::Path_Exists(MetaGuard_TmpBackup()))
++		src = MetaGuard_TmpBackup();
++	else if (MetaGuard_IsDataMounted() && TWFunc::Path_Exists(MetaGuard_DataBackup())) {
++		src = MetaGuard_DataBackup();
++		LOGINFO("MetaGuard: /tmp backup missing, using persisted %s\n", MetaGuard_DataBackup());
++	}
++	if (src.empty()) {
++		LOGINFO("MetaGuard: no backup found, nothing to restore\n");
++		return 0;
++	}
++	if (!MetaGuard_WriteDevice(src.c_str(), MetaGuard_Device())) {
++		LOGERR("MetaGuard: restore FAILED writing %s\n", MetaGuard_Device());
++		return -1;
++	}
++	sync();
++	LOGINFO("MetaGuard: restore done (%s -> %s)\n", src.c_str(), MetaGuard_Device());
++	// keep persisted copy in sync with the restored (pristine) image
++	if (MetaGuard_IsDataMounted())
++		MetaGuard_WriteFile(src.c_str(), MetaGuard_DataBackup());
++	return 0;
++}
++
+ // reboot: Reboot the system. Return -1 on error, no return on success
+ int TWFunc::tw_reboot(RebootCommand command)
+ {
+@@ -651,6 +821,11 @@ int TWFunc::tw_reboot(RebootCommand command)
+ 	// Always force a sync before we reboot
+ 	sync();
+ 
++	// TB8505F: restore the boot-time metadata backup (MetaGuard) before ANY
++	// state transition: system / recovery / bootloader / poweroff / download /
++	// edl / fastboot.
++	TWFunc::MetaGuard_Restore();
++
+ 	switch (command) {
+ 		case rb_current:
+ 		case rb_system:
+diff --git a/bootable/recovery/twrp-functions.hpp b/bootable/recovery/twrp-functions.hpp
+index 2613ff0..85b42fb 100644
+--- a/bootable/recovery/twrp-functions.hpp
++++ b/bootable/recovery/twrp-functions.hpp
+@@ -86,6 +86,8 @@ public:
+ 	static void Update_Intent_File(string Intent);                              // Updates intent file
+ 	static int tw_reboot(RebootCommand command);                                // Prepares the device for rebooting
+ 	static void check_and_run_script(const char* script_file, const char* display_name); // checks for the existence of a script, chmods it to 755, then runs it
++	static int MetaGuard_Backup();                                                  // TB8505F: snapshot FDE metadata partition before any decrypt
++	static int MetaGuard_Restore();                                                 // TB8505F: restore metadata backup before reboot/poweroff
+ 	static int removeDir(const string path, bool removeParent); //recursively remove a directory
+ 	static int copy_file(string src, string dst, int mode); //copy file from src to dst with mode permissions
+ 	static unsigned int Get_D_Type_From_Stat(string Path);                      // Returns a dirent dt_type value using stat instead of dirent
+diff --git a/bootable/recovery/twrp.cpp b/bootable/recovery/twrp.cpp
+index 40ecf58..d71c457 100644
+--- a/bootable/recovery/twrp.cpp
++++ b/bootable/recovery/twrp.cpp
+@@ -324,6 +324,11 @@ int main(int argc, char **argv) {
+ 	property_set("ro.twrp.boot", "1");
+ 	property_set("ro.twrp.version", TW_VERSION_STR);
+ 
++	// TB8505F: snapshot the FDE metadata partition BEFORE any decrypt can
++	// rewrite it (vold checkpw). Runs before gui_init/decrypt; the auto_decrypt
++	// service only starts after TWRP is ready.
++	TWFunc::MetaGuard_Backup();
++
+ 	time_t StartupTime = time(NULL);
+ 	printf("Starting TWRP %s-%s on %s (pid %d)\n", TW_VERSION_STR, TW_GIT_REVISION, ctime(&StartupTime), getpid());
+ 

@@ -24,6 +24,9 @@ on fs
     # which only exists once the system partition is mounted. ro: vold and
     # vold_decrypt only read from it.
     mount ext4 /dev/block/platform/bootdevice/by-name/system /system_root ro wait
+    # FDE metadata backup is now done in C inside TWRP (TWFunc::MetaGuard_Backup,
+    # see patches/0012) at TWRP main() start - before any vold decrypt. The
+    # restore runs in TWFunc::tw_reboot() before every reboot/poweroff.
 
 # --- Software keymaster 4.0 HAL (MTK PureSW/beanpod) + gatekeeper ---------
 # Required by vold (device's /system_root/system/bin/vold) for FDE checkpw.
