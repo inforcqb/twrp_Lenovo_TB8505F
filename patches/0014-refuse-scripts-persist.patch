@@ -1,0 +1,16 @@
+diff --git a/bootable/recovery/data.cpp b/bootable/recovery/data.cpp
+index ffb9b42..2b4dcdd 100644
+--- a/bootable/recovery/data.cpp
++++ b/bootable/recovery/data.cpp
+@@ -589,6 +589,11 @@ void DataManager::SetDefaultValues()
+ 	mConst.SetValue("tw_disable_haptics", "1");
+ #endif
+ 
++	// TB8505F: persist the refuse-automated-scripts toggle (default OFF).
++	// Without an mPersist registration, checkbox toggles stay in-memory only
++	// (DataManager::SetValue persist=0) and are lost on reboot.
++	mPersist.SetValue("tw_refuse_auto_scripts", "0");
++
+ 	TWPartition *store = PartitionManager.Get_Default_Storage_Partition();
+ 	if (store)
+ 		mPersist.SetValue("tw_storage_path", store->Storage_Path);
