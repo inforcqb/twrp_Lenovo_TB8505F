@@ -1,0 +1,132 @@
+diff --git a/bootable/recovery/gui/action.cpp b/bootable/recovery/gui/action.cpp
+index edb64e3..54cee47 100644
+--- a/bootable/recovery/gui/action.cpp
++++ b/bootable/recovery/gui/action.cpp
+@@ -164,6 +164,7 @@ GUIAction::GUIAction(xml_node<>* node)
+ #define ADD_ACTION_EX(name, func) mf[name] = &GUIAction::func
+ 		// These actions will be run in the caller's thread
+ 		ADD_ACTION(reboot);
++		ADD_ACTION(confirm_run_script);
+ 		ADD_ACTION(home);
+ 		ADD_ACTION(key);
+ 		ADD_ACTION(page);
+@@ -557,6 +558,22 @@ int GUIAction::reboot(std::string arg)
+ 	return 0;
+ }
+ 
++// TB8505F: executed by the refuse-scripts gate via the confirm slider.
++// Runs the script path stored in tw_refuse_script_path (this session allow).
++int GUIAction::confirm_run_script(std::string arg __unused)
++{
++	std::string path;
++	DataManager::GetValue("tw_refuse_script_path", path);
++	if (!path.empty()) {
++		LOGINFO("confirm_run_script: executing '%s'\n", path.c_str());
++		chmod(path.c_str(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
++		TWFunc::Exec_Cmd(path);
++	} else {
++		LOGERR("confirm_run_script: no script path set\n");
++	}
++	return 0;
++}
++
+ int GUIAction::home(std::string arg __unused)
+ {
+ 	gui_changePage("main");
+diff --git a/bootable/recovery/gui/objects.hpp b/bootable/recovery/gui/objects.hpp
+index a94e793..02de4d9 100644
+--- a/bootable/recovery/gui/objects.hpp
++++ b/bootable/recovery/gui/objects.hpp
+@@ -302,6 +302,7 @@ protected:
+ 
+ 	// GUI actions
+ 	int reboot(std::string arg);
++	int confirm_run_script(std::string arg);  // TB8505F: execute a script gated by the refuse-scripts slider
+ 	int home(std::string arg);
+ 	int key(std::string arg);
+ 	int page(std::string arg);
+diff --git a/bootable/recovery/gui/theme/common/portrait.xml b/bootable/recovery/gui/theme/common/portrait.xml
+index a8e92b1..cf6a064 100644
+--- a/bootable/recovery/gui/theme/common/portrait.xml
++++ b/bootable/recovery/gui/theme/common/portrait.xml
+@@ -3408,6 +3408,9 @@
+ 				<listitem name="{@unmount_sys_install=Unmount System before installing a ZIP}">
+ 					<data variable="tw_unmount_system"/>
+ 				</listitem>
++				<listitem name="{@refuse_scripts_chk=Block automated recovery scripts (swipe to allow each)}">
++					<data variable="tw_refuse_auto_scripts"/>
++				</listitem>
+ 			</listbox>
+ 
+ 			<button style="main_button_half_height">
+diff --git a/bootable/recovery/twrp-functions.cpp b/bootable/recovery/twrp-functions.cpp
+index d9b7d2b..75af524 100644
+--- a/bootable/recovery/twrp-functions.cpp
++++ b/bootable/recovery/twrp-functions.cpp
+@@ -873,6 +873,31 @@ void TWFunc::check_and_run_script(const char* script_file, const char* display_n
+ 	// Check for and run startup script if script exists
+ 	struct stat st;
+ 	if (stat(script_file, &st) == 0) {
++		// TB8505F refuse-mode: gate EVERY automated script (boot hooks and
++		// reboot hooks) behind the slider. Swipe = allow this time; the
++		// confirm_run_script action runs the script stored in
++		// tw_refuse_script_path. Back/home = skip.
++		if (DataManager::GetIntValue("tw_refuse_auto_scripts") == 1) {
++			LOGINFO("Refuse-mode: gating script '%s' (%s) behind slider\n", script_file, display_name);
++			DataManager::SetValue("tw_refuse_script_path", script_file);
++			DataManager::SetValue("tw_back", "main");
++			DataManager::SetValue("tw_action", "confirm_run_script");
++			DataManager::SetValue("tw_action_param", "");
++			DataManager::SetValue("tw_has_action2", "0");
++			DataManager::SetValue("tw_has_cancel", 0);
++			DataManager::SetValue("tw_show_reboot", 0);
++			DataManager::SetValue("tw_action_text1", gui_lookup("running_script", "Running script"));
++			DataManager::SetValue("tw_complete_text1", gui_lookup("script_done", "Script complete"));
++			DataManager::SetValue("tw_text1", gui_lookup("refuse_script_title", "Automated recovery script detected"));
++			DataManager::SetValue("tw_text2", display_name);
++			DataManager::SetValue("tw_text3", gui_lookup("refuse_script_hint", "Blocked by your setting. Swipe to allow it THIS time."));
++			DataManager::SetValue("tw_text4", "");
++			DataManager::SetValue("tw_slider_text", gui_lookup("refuse_script_swipe", "Swipe to allow this script"));
++			if (gui_startPage("confirm_action", 0, 1) != 0) {
++				LOGERR("Failed to load script confirm page.\n");
++			}
++			return;
++		}
+ 		gui_msg(Msg("run_script=Running {1} script...")(display_name));
+ 		chmod(script_file, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+ 		TWFunc::Exec_Cmd(script_file);
+diff --git a/bootable/recovery/twrp.cpp b/bootable/recovery/twrp.cpp
+index d71c457..91ce1ec 100644
+--- a/bootable/recovery/twrp.cpp
++++ b/bootable/recovery/twrp.cpp
+@@ -193,7 +193,29 @@ static void process_recovery_mode(twrpAdbBuFifo* adb_bu_fifo, bool skip_decrypti
+ 		cacheDir = "/data/cache";
+ 	std::string orsFile = cacheDir + "/recovery/openrecoveryscript";
+ 	if ((DataManager::GetIntValue(TW_IS_ENCRYPTED) == 0 || skip_decryption) && (TWFunc::Path_Exists(SCRIPT_FILE_TMP) || TWFunc::Path_Exists(orsFile))) {
+-		OpenRecoveryScript::Run_OpenRecoveryScript();
++		if (DataManager::GetIntValue("tw_refuse_auto_scripts") == 1) {
++			// TB8505F refuse-mode: gate automated recovery scripts (ORS +
++			// converted AOSP commands) behind the slider. Swipe = allow this
++			// time; back/home = skip (script stays for next boot).
++			DataManager::SetValue("tw_back", "main");
++			DataManager::SetValue("tw_action", "openrecoveryscript");
++			DataManager::SetValue("tw_action_param", "");
++			DataManager::SetValue("tw_has_action2", "0");
++			DataManager::SetValue("tw_has_cancel", 0);
++			DataManager::SetValue("tw_show_reboot", 0);
++			DataManager::SetValue("tw_action_text1", gui_lookup("running_ors", "Running OpenRecoveryScript"));
++			DataManager::SetValue("tw_complete_text1", gui_lookup("ors_complete", "OpenRecoveryScript Complete"));
++			DataManager::SetValue("tw_text1", gui_lookup("refuse_script_title", "Automated recovery script detected"));
++			DataManager::SetValue("tw_text2", orsFile.c_str());
++			DataManager::SetValue("tw_text3", gui_lookup("refuse_script_hint", "Blocked by your setting. Swipe to allow it THIS time."));
++			DataManager::SetValue("tw_text4", "");
++			DataManager::SetValue("tw_slider_text", gui_lookup("refuse_script_swipe", "Swipe to allow this script"));
++			if (gui_startPage("confirm_action", 0, 1) != 0) {
++				LOGERR("Failed to load script confirm page.\n");
++			}
++		} else {
++			OpenRecoveryScript::Run_OpenRecoveryScript();
++		}
+ 	}
+ 
+ #ifdef TW_HAS_MTP
